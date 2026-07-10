@@ -1,0 +1,1359 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CJD LOGIC/BOARD — Interactive Logic Circuit Simulator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-deepest:#071a12; --board:#0d2318; --board-line:#123a26; --board-line-strong:#1a4a2f;
+    --copper:#c98a4b; --copper-dim:#6b4a2e; --copper-dark:#4a3320;
+    --signal-on:#6bff9e; --signal-on-glow:rgba(107,255,158,0.55); --signal-off:#5a4632;
+    --silkscreen:#e9e6dc; --silkscreen-dim:#8a9a8f;
+    --panel:#0a2116; --panel-border:#1d3f2a; --danger:#ff6b52; --amber:#ffb454;
+    --page-bg:#071a12; --card-bg:#0a2116;
+  }
+  html[data-theme="light"]{
+    --bg-deepest:#eef1e9; --board:#e4efe4; --board-line:#c9ddc9; --board-line-strong:#a9c9a9;
+    --copper:#a15f22; --copper-dim:#c9a678; --copper-dark:#dcc39f;
+    --signal-on:#149a52; --signal-on-glow:rgba(20,154,82,0.35); --signal-off:#cbb98f;
+    --silkscreen:#1d2b21; --silkscreen-dim:#5c6e60;
+    --panel:#ffffff; --panel-border:#d9d4c4; --danger:#d1442c; --amber:#a8710f;
+    --page-bg:#f7f5ec; --card-bg:#ffffff;
+  }
+  *{box-sizing:border-box;}
+  html{ scroll-behavior:smooth; }
+  html,body{ height:100%; }
+  body{ margin:0; background:var(--page-bg); color:var(--silkscreen); font-family:'IBM Plex Mono', monospace; }
+
+  /* ================= Site nav ================= */
+  .site-nav{
+    position:sticky; top:0; z-index:200; display:flex; align-items:center; justify-content:space-between;
+    padding:12px 26px; background:linear-gradient(180deg, #0c2418, #0a1f14); border-bottom:1px solid var(--panel-border);
+  }
+  html[data-theme="light"] .site-nav{ background:linear-gradient(180deg, #ffffff, #f3f1e6); }
+  .site-nav .brand{ display:flex; align-items:baseline; gap:8px; }
+  .site-nav .brand h1{ font-family:'Space Mono',monospace; font-weight:700; font-size:17px; letter-spacing:2.5px; margin:0; text-transform:uppercase; }
+  .site-nav .brand h1 span{ color:var(--signal-on); }
+  .site-nav .links{ display:flex; gap:18px; flex-wrap:wrap; }
+  .site-nav .links a{ color:var(--silkscreen-dim); text-decoration:none; font-size:11.5px; letter-spacing:0.8px; text-transform:uppercase; transition:color .15s; }
+  .site-nav .links a:hover{ color:var(--signal-on); }
+  .theme-toggle{ background:var(--panel); border:1px solid var(--panel-border); color:var(--silkscreen); border-radius:20px; padding:5px 12px; cursor:pointer; font-size:13px; }
+
+  /* ================= Page switching ================= */
+  .site-page{ display:none; }
+  .site-page.active{ display:block; }
+  .site-nav .links a.active{ color:var(--signal-on); }
+
+  /* ================= Generic site sections ================= */
+  .site-section{ padding:70px 26px; max-width:1080px; margin:0 auto; }
+  .site-section h2{ font-family:'Space Mono',monospace; font-size:24px; letter-spacing:1px; margin:0 0 8px; }
+  .site-section .lede{ color:var(--silkscreen-dim); font-size:13px; max-width:640px; margin-bottom:34px; line-height:1.7; }
+  .cards-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:16px; }
+  .card{ background:var(--card-bg); border:1px solid var(--panel-border); border-radius:8px; padding:18px 20px; }
+  .card h3{ font-size:13.5px; letter-spacing:0.5px; margin:0 0 8px; color:var(--signal-on); }
+  .card p{ font-size:11.5px; color:var(--silkscreen-dim); line-height:1.6; margin:0 0 10px; }
+  .card button{ font-family:'IBM Plex Mono',monospace; background:transparent; border:1px solid var(--copper); color:var(--copper); padding:6px 12px; border-radius:4px; cursor:pointer; font-size:11px; letter-spacing:0.5px; }
+  .card button:hover{ background:var(--copper); color:var(--bg-deepest); }
+
+  /* Hero */
+  .hero{ text-align:center; padding:100px 26px 70px; }
+  .hero h1{ font-family:'Space Mono',monospace; font-size:42px; letter-spacing:3px; margin:0 0 14px; text-transform:uppercase; }
+  .hero h1 span{ color:var(--signal-on); }
+  .hero p{ color:var(--silkscreen-dim); font-size:14px; max-width:560px; margin:0 auto 30px; line-height:1.8; }
+  .hero-ctas{ display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
+  .btn-primary, .btn-secondary{ font-family:'IBM Plex Mono',monospace; padding:11px 22px; border-radius:5px; cursor:pointer; font-size:12.5px; letter-spacing:0.8px; text-decoration:none; display:inline-block; }
+  .btn-primary{ background:var(--signal-on); color:#04170d; border:none; }
+  .btn-secondary{ background:transparent; color:var(--silkscreen); border:1px solid var(--panel-border); }
+
+  .ref-table{ width:100%; border-collapse:collapse; font-size:11.5px; margin-top:10px; }
+  .ref-table th, .ref-table td{ border:1px solid var(--panel-border); padding:8px 10px; text-align:left; }
+  .ref-table th{ color:var(--amber); background:rgba(255,180,84,0.06); font-size:10.5px; letter-spacing:0.5px; }
+
+  footer{ text-align:center; padding:30px; color:var(--silkscreen-dim); font-size:10.5px; border-top:1px solid var(--panel-border); }
+
+  /* ================= Simulator section ================= */
+  .app-section{ height:100vh; padding:0; max-width:none; }
+  .app{ display:flex; flex-direction:column; height:100%; width:100%; }
+
+  header.sim-header{ display:flex; flex-direction:column; gap:8px; padding:10px 20px; background:linear-gradient(180deg, #0c2418, #0a1f14); border-bottom:1px solid var(--panel-border); flex-shrink:0; }
+  html[data-theme="light"] header.sim-header{ background:linear-gradient(180deg, #ffffff, #f3f1e6); }
+  .sim-header-row{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .sim-title{ font-family:'Space Mono',monospace; font-weight:700; font-size:16px; letter-spacing:2px; margin-right:6px; }
+  .sim-title span{ color:var(--signal-on); }
+  button.chip-btn{ font-family:'IBM Plex Mono',monospace; background:var(--panel); color:var(--silkscreen); border:1px solid var(--panel-border); padding:6px 11px; border-radius:3px; cursor:pointer; letter-spacing:0.4px; font-size:10.5px; }
+  button.chip-btn:hover{ border-color:var(--signal-on); color:var(--signal-on); }
+  button.chip-btn.danger:hover{ border-color:var(--danger); color:var(--danger); }
+  button.chip-btn.active{ border-color:var(--signal-on); color:var(--signal-on); background:rgba(107,255,158,0.08); }
+  .speed-group{ display:flex; border:1px solid var(--panel-border); border-radius:3px; overflow:hidden; }
+  .speed-group button{ border:none; border-right:1px solid var(--panel-border); border-radius:0; }
+  .speed-group button:last-child{ border-right:none; }
+
+  .file-menu{ position:relative; }
+  .file-dropdown{ position:absolute; top:110%; left:0; background:var(--panel); border:1px solid var(--panel-border); border-radius:4px; min-width:120px; display:none; flex-direction:column; z-index:50; }
+  .file-dropdown.open{ display:flex; }
+  .fd-item{ padding:8px 14px; font-size:11px; cursor:pointer; letter-spacing:0.4px; }
+  .fd-item:hover{ background:rgba(107,255,158,0.08); color:var(--signal-on); }
+
+  .recent-bar{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:10.5px; color:var(--silkscreen-dim); }
+  .recent-label{ letter-spacing:1px; }
+  .recent-chip{ background:var(--panel); border:1px solid var(--panel-border); padding:3px 9px; border-radius:12px; cursor:pointer; }
+  .recent-chip:hover{ border-color:var(--signal-on); color:var(--signal-on); }
+
+  .legend{ display:flex; gap:10px; align-items:center; font-size:10px; color:var(--silkscreen-dim); margin-left:auto; }
+  .legend .dot{ display:inline-block; width:8px;height:8px; border-radius:50%; margin-right:4px; vertical-align:middle; }
+  .legend .dot.on{ background:var(--signal-on); box-shadow:0 0 6px var(--signal-on-glow); }
+  .legend .dot.off{ background:var(--copper-dim); }
+
+  .body-wrap{ flex:1; display:flex; min-height:0; }
+
+  .palette{ width:158px; flex-shrink:0; background:var(--panel); border-right:1px solid var(--panel-border); padding:10px 9px; overflow-y:auto; }
+  #paletteSearch{ width:100%; box-sizing:border-box; margin-bottom:10px; padding:6px 8px; font-family:'IBM Plex Mono',monospace; font-size:11px; background:var(--bg-deepest); color:var(--silkscreen); border:1px solid var(--panel-border); border-radius:4px; }
+  .palette h2{ font-size:9.5px; letter-spacing:1.6px; text-transform:uppercase; color:var(--silkscreen-dim); margin:10px 4px 8px; font-weight:500; }
+  .palette h2:first-of-type{ margin-top:2px; }
+  .palette-item{ display:flex; flex-direction:column; align-items:center; gap:3px; padding:8px 4px 7px; margin-bottom:5px; border:1px solid transparent; border-radius:4px; cursor:grab; user-select:none; transition:background .12s, border-color .12s, transform .08s; }
+  .palette-item:hover{ background:rgba(107,255,158,0.06); border-color:var(--board-line-strong); }
+  .palette-item:active{ cursor:grabbing; transform:scale(0.96); }
+  .palette-item svg{ display:block; }
+  .palette-item .plabel{ font-size:9.5px; letter-spacing:0.5px; color:var(--silkscreen-dim); text-align:center; line-height:1.3; }
+  .palette hr{ border:none; border-top:1px solid var(--panel-border); margin:8px 0; }
+  .help-text{ font-size:9.5px; line-height:1.6; color:var(--silkscreen-dim); padding:6px 4px; }
+  .help-text b{ color:var(--silkscreen); }
+  .drag-ghost{ position:fixed; top:0; left:0; pointer-events:none; z-index:999; opacity:0.85; transform:translate(-50%,-50%); filter:drop-shadow(0 4px 10px rgba(0,0,0,0.5)); }
+
+  .board-viewport{ flex:1; position:relative; overflow:hidden; background:var(--board); }
+  .board-viewport.drag-over::after{ content:''; position:absolute; inset:0; border:2px dashed var(--signal-on); pointer-events:none; z-index:5; }
+  .board{ position:absolute; top:0; left:0; width:2600px; height:1500px; transform-origin:0 0; background-image:radial-gradient(circle, var(--board-line) 1px, transparent 1px); background-size:26px 26px; cursor:grab; }
+  svg#wireLayer{ position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; overflow:visible; }
+  svg#wireLayer path.wire{ fill:none; pointer-events:stroke; cursor:pointer; }
+  svg#wireLayer path.wire.off{ stroke:var(--copper-dim); stroke-width:3; }
+  svg#wireLayer path.wire.on{ stroke:var(--signal-on); stroke-width:3; stroke-dasharray:7 5; filter:drop-shadow(0 0 4px var(--signal-on-glow)); animation:flow 0.5s linear infinite; }
+  svg#wireLayer path.wire.wire-highlight{ stroke-width:4.5; filter:drop-shadow(0 0 6px var(--amber)); }
+  svg#wireLayer path.wire.wire-selected{ stroke:var(--amber) !important; stroke-width:4.5; filter:drop-shadow(0 0 7px var(--amber)); }
+  svg#wireLayer path.wire-hit{ fill:none; stroke:transparent; stroke-width:16; pointer-events:stroke; cursor:pointer; }
+  svg#wireLayer path.temp-wire{ fill:none; stroke:var(--amber); stroke-width:2.5; stroke-dasharray:4 4; pointer-events:none; }
+  @keyframes flow{ to{ stroke-dashoffset:-24; } }
+
+  .mini-map{ position:absolute; bottom:12px; right:12px; width:180px; height:104px; background:var(--panel); border:1px solid var(--panel-border); border-radius:4px; z-index:20; cursor:pointer; }
+
+  .gate-node{ position:absolute; touch-action:none; user-select:none; }
+  .gate-body{ position:absolute; inset:0; cursor:grab; }
+  .gate-node.dragging .gate-body{ cursor:grabbing; }
+  .gate-node.selected .gate-body{ outline:2px solid var(--amber); outline-offset:4px; border-radius:6px; }
+  .gate-node .glabel{ position:absolute; bottom:-15px; left:0; right:0; text-align:center; font-size:9px; letter-spacing:1.2px; color:var(--silkscreen-dim); pointer-events:none; }
+  .gate-node .del-btn, .gate-node .rotate-btn{ position:absolute; top:-8px; width:16px;height:16px; border-radius:50%; background:var(--panel); font-size:10px; line-height:14px; text-align:center; cursor:pointer; opacity:0; transition:opacity .12s; z-index:6; }
+  .gate-node .del-btn{ right:-8px; border:1px solid var(--danger); color:var(--danger); }
+  .gate-node .rotate-btn{ left:-8px; border:1px solid var(--copper); color:var(--copper); }
+  .gate-node:hover .del-btn, .gate-node:hover .rotate-btn{ opacity:1; }
+  .autorun-btn{ position:absolute; top:-8px; left:14px; width:16px;height:16px; border-radius:50%; background:var(--panel); border:1px solid var(--copper); color:var(--copper); font-size:8px; line-height:14px; text-align:center; cursor:pointer; z-index:7; }
+  .autorun-btn.active{ border-color:var(--signal-on); color:var(--signal-on); box-shadow:0 0 6px var(--signal-on-glow); }
+
+  .pin{ position:absolute; width:11px;height:11px; border-radius:50%; background:var(--copper-dark); border:2px solid var(--copper-dim); transform:translate(-50%,-50%); cursor:crosshair; z-index:4; transition:background .15s, border-color .15s, box-shadow .15s; }
+  .pin.pin-on{ background:var(--signal-on); border-color:var(--signal-on); box-shadow:0 0 7px var(--signal-on-glow); }
+  .pin:hover{ border-color:var(--amber); }
+  .pin.pin-floating{ border-color:var(--danger); box-shadow:0 0 6px rgba(255,107,82,0.7); }
+  .pin.pin-unconnected{ border-color:var(--amber); }
+  .pin-tag{ position:absolute; font-size:8px; color:var(--silkscreen-dim); white-space:nowrap; pointer-events:none; transform:translateY(-50%); }
+
+  .ic-chip{ position:absolute; inset:0; background:rgba(201,138,75,0.05); border:2px solid var(--copper); border-radius:4px; }
+  .ic-chip::before{ content:''; position:absolute; top:-5px; left:50%; transform:translateX(-50%); width:14px; height:9px; background:var(--board); border:2px solid var(--copper); border-top:none; border-radius:0 0 8px 8px; }
+  .ic-chip .chip-label{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; text-align:center; font-size:10px; font-weight:600; letter-spacing:0.3px; color:var(--silkscreen); padding:4px; line-height:1.25; }
+
+  .toggle-track{ position:absolute; left:13px; top:16px; width:44px; height:24px; border-radius:12px; background:var(--copper-dark); border:1px solid var(--copper-dim); cursor:pointer; }
+  .toggle-track.on{ background:rgba(107,255,158,0.15); border-color:var(--signal-on); }
+  .toggle-knob{ position:absolute; top:2px; left:2px; width:18px;height:18px; border-radius:50%; background:var(--copper); transition:left .15s, background .15s; }
+  .toggle-track.on .toggle-knob{ left:24px; background:var(--signal-on); box-shadow:0 0 6px var(--signal-on-glow); }
+
+  .led{ position:absolute; left:19px; top:11px; width:34px;height:34px; border-radius:50%; background:radial-gradient(circle at 35% 30%, #2a2018, #1a130d); border:2px solid var(--copper-dim); }
+  .led.on{ background:radial-gradient(circle at 35% 30%, #baffce, var(--signal-on)); border-color:var(--signal-on); box-shadow:0 0 16px 3px var(--signal-on-glow); }
+
+  .right-panel{ width:250px; flex-shrink:0; background:var(--panel); border-left:1px solid var(--panel-border); display:flex; flex-direction:column; }
+  .rp-tabs{ display:flex; border-bottom:1px solid var(--panel-border); }
+  .rp-tab{ flex:1; text-align:center; padding:9px 3px; font-size:9.5px; letter-spacing:0.6px; color:var(--silkscreen-dim); cursor:pointer; }
+  .rp-tab.active{ color:var(--signal-on); background:rgba(107,255,158,0.06); border-bottom:2px solid var(--signal-on); }
+  .rp-body{ flex:1; overflow-y:auto; padding:10px; }
+  .expr-row{ font-size:11px; margin-bottom:10px; line-height:1.5; word-break:break-word; }
+  .expr-row .en{ color:var(--amber); font-weight:600; }
+  .expr-empty, .val-empty{ font-size:10.5px; color:var(--silkscreen-dim); }
+  .val-issue{ font-size:10.5px; color:var(--danger); margin-bottom:7px; line-height:1.5; }
+  .val-ok{ font-size:11px; color:var(--signal-on); }
+  .stat-row{ display:flex; justify-content:space-between; font-size:11.5px; padding:7px 2px; border-bottom:1px solid var(--panel-border); }
+  .stat-row b{ color:var(--signal-on); }
+
+  .modal-overlay{ position:fixed; inset:0; background:rgba(3,10,6,0.72); display:none; align-items:center; justify-content:center; z-index:1000; }
+  .modal-overlay.show{ display:flex; }
+  .modal{ width:380px; max-height:80vh; overflow-y:auto; background:var(--panel); border:1px solid var(--panel-border); border-radius:6px; }
+  .modal-head{ display:flex; justify-content:space-between; align-items:center; padding:12px 16px; border-bottom:1px solid var(--panel-border); font-size:13px; letter-spacing:0.5px; }
+  .modal-close{ cursor:pointer; color:var(--silkscreen-dim); font-size:16px; }
+  .modal-close:hover{ color:var(--danger); }
+  .modal-body{ padding:14px 16px; font-size:11.5px; line-height:1.6; }
+  .modal-body h4{ font-size:10px; letter-spacing:1px; text-transform:uppercase; color:var(--signal-on); margin:14px 0 6px; }
+  .modal-body h4:first-child{ margin-top:0; }
+  .edu-symbol{ display:flex; justify-content:center; padding:6px 0; }
+  .edu-eq, .edu-app, .edu-note{ color:var(--silkscreen-dim); }
+  table.tt-table{ width:100%; border-collapse:collapse; font-size:10.5px; }
+  table.tt-table th, table.tt-table td{ border:1px solid var(--panel-border); text-align:center; padding:3px 6px; }
+  table.tt-table th{ color:var(--amber); background:rgba(255,180,84,0.07); }
+  table.tt-table td{ color:var(--silkscreen); }
+
+  ::-webkit-scrollbar{ width:11px; height:11px; }
+  ::-webkit-scrollbar-track{ background:var(--bg-deepest); }
+  ::-webkit-scrollbar-thumb{ background:var(--panel-border); border-radius:6px; border:2px solid var(--bg-deepest); }
+</style>
+</head>
+<body>
+
+<nav class="site-nav">
+  <div class="brand"><h1>CJD LOGIC<span>/</span>BOARD</h1></div>
+  <div class="links">
+    <a href="#home">Home</a>
+    <a href="#features">Features</a>
+    <a href="#simulator">Live Simulator</a>
+    <a href="#learn">Learn</a>
+    <a href="#examples">Examples</a>
+    <a href="#download">Download</a>
+    <a href="#contact">Contact</a>
+  </div>
+  <button class="theme-toggle" id="themeToggle">☀️</button>
+</nav>
+
+<section id="home" class="site-section hero site-page active">
+  <h1>CJD LOGIC<span>/</span>BOARD</h1>
+  <p>A complete, self-contained digital-logic workbench that runs entirely in your browser. Wire up gates, adders, multiplexers and flip-flops, watch current flow in real time, and read out the Boolean equation as you build.</p>
+  <div class="hero-ctas">
+    <a class="btn-primary" href="#simulator">Open the Simulator</a>
+    <a class="btn-secondary" href="#download">Download the App</a>
+  </div>
+</section>
+
+<section id="features" class="site-section site-page">
+  <h2>Features</h2>
+  <p class="lede">Everything you need to design, simulate, and understand a digital circuit — no installs, no accounts, no server.</p>
+  <div class="cards-grid">
+    <div class="card"><h3>Drag &amp; Drop Design</h3><p>Drag parts from the palette, move them freely, rotate them, delete them — the whole board responds instantly.</p></div>
+    <div class="card"><h3>Pin-to-Pin Wiring</h3><p>Drag from an output pin to an input pin to connect. Wires glow and animate while carrying a HIGH signal.</p></div>
+    <div class="card"><h3>Boolean Equations</h3><p>Every LED output shows its live symbolic Boolean expression, traced automatically through the circuit.</p></div>
+    <div class="card"><h3>Digital Circuits</h3><p>Half/Full Adders, a Multiplexer, Demultiplexer, Encoder, Decoder, and Comparator as ready-made ICs.</p></div>
+    <div class="card"><h3>Sequential Logic</h3><p>SR/JK/D/T flip-flops, a 4-bit Register, and a 4-bit Counter — all clocked, all stateful.</p></div>
+    <div class="card"><h3>Truth Tables</h3><p>Generate a full truth table for your circuit, or right-click any single part for its own datasheet.</p></div>
+    <div class="card"><h3>Save / Open / Export</h3><p>Save a project as JSON, reopen it later, or export a PNG snapshot to drop into a report or slide deck.</p></div>
+    <div class="card"><h3>Zoom, Pan &amp; Minimap</h3><p>Scroll to zoom, drag empty space to pan, and use the minimap to jump around large circuits.</p></div>
+  </div>
+</section>
+
+<section id="simulator" class="site-section app-section site-page">
+  <div class="app">
+    <header class="sim-header">
+      <div class="sim-header-row">
+        <span class="sim-title">CJD LOGIC<span>/</span>BOARD</span>
+
+        <div class="file-menu">
+          <button class="chip-btn" id="fileMenuBtn">FILE ▾</button>
+          <div class="file-dropdown" id="fileDropdown">
+            <div class="fd-item" id="fdNew">New</div>
+            <div class="fd-item" id="fdSave">Save</div>
+            <div class="fd-item" id="fdOpen">Open</div>
+            <div class="fd-item" id="fdExport">Export PNG</div>
+          </div>
+        </div>
+
+        <button class="chip-btn" id="truthBtn">TRUTH TABLE</button>
+        <button class="chip-btn" id="validateBtn">VALIDATE</button>
+        <button class="chip-btn" id="arrangeBtn">ARRANGE</button>
+        <button class="chip-btn" id="snapBtn">SNAP: OFF</button>
+
+        <div class="speed-group">
+          <button class="chip-btn" data-speed="0.5">0.5x</button>
+          <button class="chip-btn active" data-speed="1">1x</button>
+          <button class="chip-btn" data-speed="2">2x</button>
+          <button class="chip-btn" data-speed="5">5x</button>
+        </div>
+
+        <button class="chip-btn" id="resetViewBtn">RESET VIEW</button>
+        <button class="chip-btn danger" id="clearBtn">CLEAR</button>
+
+        <div class="legend">
+          <span><span class="dot off"></span>LOW</span>
+          <span><span class="dot on"></span>HIGH</span>
+        </div>
+      </div>
+      <div class="recent-bar" id="recentBar"></div>
+    </header>
+
+    <div class="body-wrap">
+      <aside class="palette" id="paletteEl">
+        <input id="paletteSearch" type="text" placeholder="🔍 search components…">
+
+        <h2>Inputs / Outputs</h2>
+        <div class="palette-item" data-type="INPUT">
+          <svg width="56" height="32" viewBox="0 0 56 32"><rect x="8" y="6" width="34" height="18" rx="9" fill="none" stroke="var(--copper)" stroke-width="2"/><circle cx="17" cy="15" r="6" fill="var(--copper)"/></svg>
+          <span class="plabel">SWITCH</span>
+        </div>
+        <div class="palette-item" data-type="OUTPUT">
+          <svg width="56" height="32" viewBox="0 0 56 32"><circle cx="28" cy="15" r="11" fill="none" stroke="var(--copper)" stroke-width="2"/></svg>
+          <span class="plabel">LED</span>
+        </div>
+        <div class="palette-item" data-type="CLOCK">
+          <svg width="56" height="32" viewBox="0 0 56 32"><circle cx="28" cy="15" r="11" fill="none" stroke="var(--copper)" stroke-width="2"/><path d="M28,8 L28,15 L33,18" fill="none" stroke="var(--copper)" stroke-width="2"/></svg>
+          <span class="plabel">CLOCK</span>
+        </div>
+
+        <h2>Gates</h2>
+        <div class="palette-item" data-type="NOT">
+          <svg width="56" height="32" viewBox="0 0 56 32"><path d="M9,5 L9,27 L38,16 Z" fill="none" stroke="var(--copper)" stroke-width="2"/><circle cx="43" cy="16" r="4" fill="none" stroke="var(--copper)" stroke-width="2"/></svg>
+          <span class="plabel">NOT</span>
+        </div>
+        <div class="palette-item" data-type="AND">
+          <svg width="56" height="32" viewBox="0 0 56 32"><path d="M7,4 L26,4 A12,12 0 0 1 26,28 L7,28 Z" fill="none" stroke="var(--copper)" stroke-width="2"/></svg>
+          <span class="plabel">AND</span>
+        </div>
+        <div class="palette-item" data-type="OR">
+          <svg width="56" height="32" viewBox="0 0 56 32"><path d="M7,4 Q19,16 7,28 Q29,28 42,16 Q29,4 7,4 Z" fill="none" stroke="var(--copper)" stroke-width="2"/></svg>
+          <span class="plabel">OR</span>
+        </div>
+        <div class="palette-item" data-type="NAND">
+          <svg width="56" height="32" viewBox="0 0 56 32"><path d="M5,4 L22,4 A12,12 0 0 1 22,28 L5,28 Z" fill="none" stroke="var(--copper)" stroke-width="2"/><circle cx="39" cy="16" r="4" fill="none" stroke="var(--copper)" stroke-width="2"/></svg>
+          <span class="plabel">NAND</span>
+        </div>
+        <div class="palette-item" data-type="NOR">
+          <svg width="56" height="32" viewBox="0 0 56 32"><path d="M5,4 Q17,16 5,28 Q25,28 36,16 Q25,4 5,4 Z" fill="none" stroke="var(--copper)" stroke-width="2"/><circle cx="41" cy="16" r="4" fill="none" stroke="var(--copper)" stroke-width="2"/></svg>
+          <span class="plabel">NOR</span>
+        </div>
+        <div class="palette-item" data-type="XOR">
+          <svg width="56" height="32" viewBox="0 0 56 32"><path d="M3,4 Q8,16 3,28" fill="none" stroke="var(--copper)" stroke-width="2"/><path d="M7,4 Q19,16 7,28 Q29,28 42,16 Q29,4 7,4 Z" fill="none" stroke="var(--copper)" stroke-width="2"/></svg>
+          <span class="plabel">XOR</span>
+        </div>
+        <div class="palette-item" data-type="XNOR">
+          <svg width="56" height="32" viewBox="0 0 56 32"><path d="M2,4 Q7,16 2,28" fill="none" stroke="var(--copper)" stroke-width="2"/><path d="M6,4 Q16,16 6,28 Q23,28 35,16 Q23,4 6,4 Z" fill="none" stroke="var(--copper)" stroke-width="2"/><circle cx="40" cy="16" r="4" fill="none" stroke="var(--copper)" stroke-width="2"/></svg>
+          <span class="plabel">XNOR</span>
+        </div>
+
+        <h2>Digital Circuits</h2>
+        <div id="circuitItems"></div>
+
+        <h2>Sequential Circuits</h2>
+        <div id="seqItems"></div>
+
+        <hr>
+        <div class="help-text">
+          <b>Drag</b> a part onto the board.<br>
+          <b>Drag</b> pin→pin to wire.<br>
+          <b>Click</b> a part/wire to select.<br>
+          <b>Del</b> removes selection.<br>
+          <b>Ctrl+Z</b> undo · <b>Ctrl+C/V</b> copy/paste.<br>
+          <b>Wheel</b> zoom · drag empty board to pan.<br>
+          <b>Right-click</b> a part for its datasheet.
+        </div>
+      </aside>
+
+      <div class="board-viewport" id="boardViewport">
+        <div class="board" id="board">
+          <svg id="wireLayer"></svg>
+        </div>
+        <svg id="miniMap" class="mini-map"></svg>
+      </div>
+
+      <aside class="right-panel">
+        <div class="rp-tabs">
+          <div class="rp-tab active" data-tab="expr">Σ EQNS</div>
+          <div class="rp-tab" data-tab="val">✓ CHECK</div>
+          <div class="rp-tab" data-tab="stats">STATS</div>
+        </div>
+        <div class="rp-body" id="exprList"></div>
+        <div class="rp-body" id="valList" style="display:none;"></div>
+        <div class="rp-body" id="statsList" style="display:none;"></div>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<section id="learn" class="site-section site-page">
+  <h2>Learn</h2>
+  <p class="lede">A quick reference for every part on the board. Right-click any placed component in the simulator for the same information plus a live truth table.</p>
+  <table class="ref-table" id="learnTable">
+    <thead><tr><th>Part</th><th>Equation / Behavior</th><th>Real-world use</th></tr></thead>
+    <tbody></tbody>
+  </table>
+</section>
+
+<section id="examples" class="site-section site-page">
+  <h2>Examples</h2>
+  <p class="lede">One click loads a working circuit straight into the Live Simulator above.</p>
+  <div class="cards-grid">
+    <div class="card"><h3>Half Adder</h3><p>Two switches feed a Half Adder IC, showing Sum and Carry on two LEDs.</p><button data-example="halfadder">Load in Simulator</button></div>
+    <div class="card"><h3>SR Latch</h3><p>A manual clock drives an SR flip-flop; watch Q and Q̄ hold their state between pulses.</p><button data-example="srlatch">Load in Simulator</button></div>
+    <div class="card"><h3>4-bit Counter</h3><p>An auto-running clock drives a 4-bit binary counter across four LEDs.</p><button data-example="counter">Load in Simulator</button></div>
+    <div class="card"><h3>2:1 Multiplexer</h3><p>Two data switches and a select switch route one signal through to a single LED.</p><button data-example="mux">Load in Simulator</button></div>
+  </div>
+</section>
+
+<section id="download" class="site-section site-page">
+  <h2>Download</h2>
+  <p class="lede">CJD LOGIC/BOARD is a single HTML file with no server and no dependencies beyond one CDN script used only for PNG export. Save it once and it runs offline forever.</p>
+  <div class="cards-grid">
+    <div class="card"><h3>Download this app</h3><p>Saves the page you're looking at right now — including whatever circuit is currently on the board — as one <code>logic-board.html</code> file you can open in any browser.</p><button id="downloadAppBtn">Download .html</button></div>
+    <div class="card"><h3>Save a project</h3><p>Use File → Save in the simulator above to export just your circuit as a portable <code>.json</code> file.</p></div>
+  </div>
+</section>
+
+<section id="contact" class="site-section site-page">
+  <h2>Contact</h2>
+  <p class="lede">Questions, bug reports, or a circuit that behaves strangely? Get in touch.</p>
+  <div class="card" style="max-width:420px;">
+    <p>This is a self-contained demo project with no backend, so there's no live contact form here — but you're welcome to reach out by email.</p>
+    <a class="btn-secondary" href="mailto:hello@example.com">hello@example.com</a>
+  </div>
+</section>
+
+<footer>CJD LOGIC/BOARD — a single-file digital logic workbench. No accounts, no tracking, no server.</footer>
+
+<input type="file" id="fileOpenInput" accept=".json" style="display:none">
+<div class="modal-overlay" id="modalOverlay"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script>
+(function(){
+  const board = document.getElementById('board');
+  const boardViewport = document.getElementById('boardViewport');
+  const wireLayer = document.getElementById('wireLayer');
+  const modalOverlay = document.getElementById('modalOverlay');
+  const miniMap = document.getElementById('miniMap');
+
+  // ================= Component registry =================
+  const COMPONENTS = {
+    INPUT:  { category:'io', w:64,h:48, inputs:[], outputs:['Y'], isInput:true },
+    OUTPUT: { category:'io', w:64,h:48, inputs:['A'], outputs:[], isOutput:true },
+    CLOCK:  { category:'io', w:64,h:48, inputs:[], outputs:['Y'], isClock:true },
+
+    NOT:  { category:'gate', w:90,h:60, inputs:['A'], outputs:['Y'], compute:a=>[a[0]?0:1] },
+    AND:  { category:'gate', w:90,h:60, inputs:['A','B'], outputs:['Y'], compute:a=>[(a[0]&&a[1])?1:0] },
+    OR:   { category:'gate', w:90,h:60, inputs:['A','B'], outputs:['Y'], compute:a=>[(a[0]||a[1])?1:0] },
+    NAND: { category:'gate', w:90,h:60, inputs:['A','B'], outputs:['Y'], compute:a=>[(a[0]&&a[1])?0:1] },
+    NOR:  { category:'gate', w:90,h:60, inputs:['A','B'], outputs:['Y'], compute:a=>[(a[0]||a[1])?0:1] },
+    XOR:  { category:'gate', w:90,h:60, inputs:['A','B'], outputs:['Y'], compute:a=>[(a[0]^a[1])?1:0] },
+    XNOR: { category:'gate', w:90,h:60, inputs:['A','B'], outputs:['Y'], compute:a=>[(a[0]^a[1])?0:1] },
+
+    HALF_ADDER:{ category:'circuit', label:'HALF ADDER', w:150, inputs:['A','B'], outputs:['S','C'],
+      compute:a=>[ (a[0]^a[1])?1:0, (a[0]&&a[1])?1:0 ] },
+    FULL_ADDER:{ category:'circuit', label:'FULL ADDER', w:150, inputs:['A','B','Cin'], outputs:['S','Cout'],
+      compute:a=>{ const s=a[0]^a[1]^a[2]; const c=((a[0]&&a[1])||(a[1]&&a[2])||(a[0]&&a[2]))?1:0; return [s?1:0,c]; } },
+    MUX2:{ category:'circuit', label:'MUX 2:1', w:150, inputs:['I0','I1','S'], outputs:['Y'],
+      compute:a=>[ a[2]? a[1]:a[0] ] },
+    DEMUX2:{ category:'circuit', label:'DEMUX 1:2', w:150, inputs:['D','S'], outputs:['Y0','Y1'],
+      compute:a=> a[1] ? [0, a[0]] : [a[0], 0] },
+    ENCODER4:{ category:'circuit', label:'ENCODER 4:2', w:150, inputs:['I0','I1','I2','I3'], outputs:['O1','O0'],
+      compute:a=>{ if(a[3]) return [1,1]; if(a[2]) return [1,0]; if(a[1]) return [0,1]; if(a[0]) return [0,0]; return [0,0]; } },
+    DECODER2:{ category:'circuit', label:'DECODER 2:4', w:150, inputs:['A1','A0'], outputs:['O0','O1','O2','O3'],
+      compute:a=>{ const v=a[1]*2+a[0]; return [v===0?1:0,v===1?1:0,v===2?1:0,v===3?1:0]; } },
+    COMPARATOR:{ category:'circuit', label:'COMPARATOR', w:150, inputs:['A','B'], outputs:['GT','EQ','LT'],
+      compute:a=>[ a[0]>a[1]?1:0, a[0]===a[1]?1:0, a[0]<a[1]?1:0 ] },
+
+    SR_LATCH:{ category:'sequential', label:'SR FLIP-FLOP', w:150, inputs:['S','R','CLK'], outputs:['Q','Q\u0305'], sequential:true,
+      initMem:()=>({Q:0}), seq:(node,a,rising)=>{ if(rising){ if(a[0]&&!a[1]) node.mem.Q=1; else if(!a[0]&&a[1]) node.mem.Q=0; } return [node.mem.Q, node.mem.Q?0:1]; } },
+    JK_FLIPFLOP:{ category:'sequential', label:'JK FLIP-FLOP', w:150, inputs:['J','K','CLK'], outputs:['Q','Q\u0305'], sequential:true,
+      initMem:()=>({Q:0}), seq:(node,a,rising)=>{ if(rising){ if(a[0]&&a[1]) node.mem.Q=node.mem.Q?0:1; else if(a[0]) node.mem.Q=1; else if(a[1]) node.mem.Q=0; } return [node.mem.Q, node.mem.Q?0:1]; } },
+    D_FLIPFLOP:{ category:'sequential', label:'D FLIP-FLOP', w:150, inputs:['D','CLK'], outputs:['Q','Q\u0305'], sequential:true,
+      initMem:()=>({Q:0}), seq:(node,a,rising)=>{ if(rising) node.mem.Q=a[0]?1:0; return [node.mem.Q, node.mem.Q?0:1]; } },
+    T_FLIPFLOP:{ category:'sequential', label:'T FLIP-FLOP', w:150, inputs:['T','CLK'], outputs:['Q','Q\u0305'], sequential:true,
+      initMem:()=>({Q:0}), seq:(node,a,rising)=>{ if(rising && a[0]) node.mem.Q=node.mem.Q?0:1; return [node.mem.Q, node.mem.Q?0:1]; } },
+    REGISTER4:{ category:'sequential', label:'4-BIT REGISTER', w:150, inputs:['D0','D1','D2','D3','CLK'], outputs:['Q0','Q1','Q2','Q3'], sequential:true,
+      initMem:()=>({vals:[0,0,0,0]}), seq:(node,a,rising)=>{ if(rising){ node.mem.vals=[a[0]?1:0,a[1]?1:0,a[2]?1:0,a[3]?1:0]; } return node.mem.vals.slice(); } },
+    COUNTER4:{ category:'sequential', label:'4-BIT COUNTER', w:150, inputs:['CLK','RESET'], outputs:['Q0','Q1','Q2','Q3'], sequential:true,
+      initMem:()=>({val:0}), seq:(node,a,rising)=>{ if(rising){ if(a[1]) node.mem.val=0; else node.mem.val=(node.mem.val+1)&15; } const v=node.mem.val; return [v&1,(v>>1)&1,(v>>2)&1,(v>>3)&1]; } },
+  };
+
+  const GATE_SVG = {
+    NOT:  `<path d="M8,7 L8,53 L58,30 Z" fill="none" stroke="var(--copper)" stroke-width="2.5"/><circle cx="66" cy="30" r="6.5" fill="none" stroke="var(--copper)" stroke-width="2.5"/>`,
+    AND:  `<path d="M8,5 L42,5 A25,25 0 0 1 42,55 L8,55 Z" fill="none" stroke="var(--copper)" stroke-width="2.5"/>`,
+    OR:   `<path d="M8,5 Q28,30 8,55 Q48,55 72,30 Q48,5 8,5 Z" fill="none" stroke="var(--copper)" stroke-width="2.5"/>`,
+    NAND: `<path d="M6,5 L34,5 A25,25 0 0 1 34,55 L6,55 Z" fill="none" stroke="var(--copper)" stroke-width="2.5"/><circle cx="65" cy="30" r="6.5" fill="none" stroke="var(--copper)" stroke-width="2.5"/>`,
+    NOR:  `<path d="M6,5 Q24,30 6,55 Q40,55 60,30 Q40,5 6,5 Z" fill="none" stroke="var(--copper)" stroke-width="2.5"/><circle cx="67" cy="30" r="6.5" fill="none" stroke="var(--copper)" stroke-width="2.5"/>`,
+    XOR:  `<path d="M2,5 Q9,30 2,55" fill="none" stroke="var(--copper)" stroke-width="2.5"/><path d="M7,5 Q27,30 7,55 Q47,55 71,30 Q47,5 7,5 Z" fill="none" stroke="var(--copper)" stroke-width="2.5"/>`,
+    XNOR: `<path d="M1,5 Q8,30 1,55" fill="none" stroke="var(--copper)" stroke-width="2.5"/><path d="M6,5 Q24,30 6,55 Q38,55 57,30 Q38,5 6,5 Z" fill="none" stroke="var(--copper)" stroke-width="2.5"/><circle cx="64" cy="30" r="6.5" fill="none" stroke="var(--copper)" stroke-width="2.5"/>`,
+  };
+
+  const EDU_INFO = {
+    INPUT:{ equation:'A manual, user-set 0/1 source.', application:'Represents a switch, button, or sensor bit feeding a circuit.' },
+    OUTPUT:{ equation:'Displays the value driving it.', application:'Represents an LED, alarm, or actuator responding to a circuit.' },
+    CLOCK:{ equation:'Toggles 0/1, manually or on an interval.', application:'Provides the timing signal that drives sequential/synchronous logic.' },
+    NOT:{ equation:'Y = A\u0305', application:'Signal inversion; used to generate active-low enable lines.' },
+    AND:{ equation:'Y = A · B', application:'Interlocks requiring multiple conditions true at once, e.g. two-key launch systems.' },
+    OR:{ equation:'Y = A + B', application:'Alarm systems that trigger if any one of several sensors fires.' },
+    NAND:{ equation:'Y = (A · B)\u0305', application:'Universal gate — entire CPUs can be built from NAND gates alone.' },
+    NOR:{ equation:'Y = (A + B)\u0305', application:'Also universal; used in classic SR latch memory cells.' },
+    XOR:{ equation:'Y = A ⊕ B', application:'Bit comparison and parity generation; core of binary adders.' },
+    XNOR:{ equation:'Y = (A ⊕ B)\u0305', application:'Equality checking between two bits; parity checking.' },
+    HALF_ADDER:{ equation:'S = A⊕B,  C = A·B', application:'Adds the least-significant bit pair in a binary adder chain.' },
+    FULL_ADDER:{ equation:'S = A⊕B⊕Cin,  Cout = AB + BCin + ACin', application:'Chained to build multi-bit ripple-carry adders in ALUs.' },
+    MUX2:{ equation:'Y = S\u0305·I0 + S·I1', application:'Selects one of several data lines, e.g. choosing a CPU register.' },
+    DEMUX2:{ equation:'Y0 = S\u0305·D,  Y1 = S·D', application:'Routes one input to one of several destinations, e.g. memory bank select.' },
+    ENCODER4:{ equation:'Priority-encodes highest active input to a 2-bit code.', application:'Keyboard scanning and interrupt-priority controllers.' },
+    DECODER2:{ equation:'Activates exactly one of 4 outputs per 2-bit address.', application:'Memory address decoding, 7-segment display drivers.' },
+    COMPARATOR:{ equation:'GT=A·B\u0305, EQ=(A⊕B)\u0305, LT=A\u0305·B', application:'ALU comparison logic and sorting-network hardware.' },
+    SR_LATCH:{ equation:'Set/Reset on rising CLK', application:'Basic memory cell; building block of more complex flip-flops.' },
+    JK_FLIPFLOP:{ equation:'Toggles when J=K=1, on rising CLK', application:'Counters and control-unit state machines.' },
+    D_FLIPFLOP:{ equation:'Q(next) = D, on rising CLK', application:'Registers, pipeline stages, and data latches in CPUs.' },
+    T_FLIPFLOP:{ equation:'Q(next) = Q⊕T, on rising CLK', application:'Simple binary counters and frequency dividers.' },
+    REGISTER4:{ equation:'Latches D0-D3 into Q0-Q3 on rising CLK', application:'CPU registers that hold a 4-bit value between clock cycles.' },
+    COUNTER4:{ equation:'Q increments by 1 each rising CLK; RESET clears it', application:'Clock dividers, timers, and program counters.' },
+  };
+
+  // ================= State =================
+  let nodes = new Map();
+  let connections = [];
+  let nextId = 1, letterIdx = 0, outputIdx = 0, connIdCounter = 1;
+
+  let dragState = null, wireState = null, paletteDrag = null, panState = null, miniMapDrag = false;
+  let selectedNodeId = null, selectedConnId = null;
+  let clipboard = null;
+  let undoStack = [];
+  let view = { scale:1, tx:0, ty:0 };
+  let snapToGrid = false;
+  let simSpeed = 1;
+  const GRID = 26;
+
+  const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  function uid(){ return 'n' + (nextId++); }
+  function nextInputLabel(){ const l = LETTERS[letterIdx % 26]; letterIdx++; return l; }
+  function nextOutputLabel(){ outputIdx++; return 'Y' + outputIdx; }
+
+  // ================= Geometry =================
+  function spacedY(i, count, h){ if(count<=1) return h/2; const pad=15; return pad + i*((h-2*pad)/(count-1)); }
+  function pinPositions(node){
+    const inputs = node.inputs.map((name,i)=>({x:0, y:spacedY(i,node.inputs.length,node.h), name}));
+    const outputs = node.outputs.map((name,i)=>({x:node.w, y:spacedY(i,node.outputs.length,node.h), name}));
+    return { inputs, outputs };
+  }
+  function rotatePoint(px,py,cx,cy,deg){
+    const rad = deg*Math.PI/180, dx=px-cx, dy=py-cy;
+    return { x: cx + dx*Math.cos(rad) - dy*Math.sin(rad), y: cy + dx*Math.sin(rad) + dy*Math.cos(rad) };
+  }
+  function nodePinBoardPos(node, role, slot){
+    const pp = pinPositions(node);
+    const local = role==='out' ? pp.outputs[slot] : pp.inputs[slot];
+    const cx=node.w/2, cy=node.h/2;
+    const r = rotatePoint(local.x, local.y, cx, cy, node.rot||0);
+    return { x: node.x + r.x, y: node.y + r.y };
+  }
+
+  // ================= Node creation =================
+  function paletteChipSVG(short){
+    return `<svg width="56" height="32" viewBox="0 0 56 32"><rect x="6" y="4" width="44" height="24" rx="3" fill="none" stroke="var(--copper)" stroke-width="2"/><text x="28" y="19" text-anchor="middle" font-size="8.5" fill="var(--copper)" font-family="IBM Plex Mono, monospace">${short}</text></svg>`;
+  }
+  function instantiateNode(type, x, y, opts={}){
+    const def = COMPONENTS[type];
+    const id = opts.id || uid();
+    const numIn = def.inputs.length, numOut = def.outputs.length;
+    let h = def.h || 60;
+    if(def.category==='circuit' || def.category==='sequential') h = Math.max(64, Math.max(numIn,numOut)*26+20);
+    const node = {
+      id, type, def, x, y, w:def.w, h, rot: opts.rot||0,
+      inputs: def.inputs, outputs: def.outputs,
+      state: opts.state!==undefined?opts.state:0,
+      running:false, timer:null,
+      label: opts.label!==undefined ? opts.label : (def.isInput||def.isClock ? nextInputLabel() : def.isOutput? nextOutputLabel() : null),
+      inVals: new Array(numIn).fill(0), outVals: new Array(numOut).fill(0),
+      mem: opts.mem!==undefined ? opts.mem : (def.initMem?def.initMem():null),
+      prevClk: opts.prevClk||0, el:null
+    };
+    nodes.set(id, node);
+    node.el = createNodeEl(node);
+    board.appendChild(node.el);
+    positionNode(node);
+    return node;
+  }
+  function addNode(type,x,y){ const n = instantiateNode(type,x,y); evaluate(); return n; }
+
+  function createNodeEl(node){
+    const def = node.def;
+    const el = document.createElement('div');
+    el.className = 'gate-node';
+    el.style.width = node.w+'px'; el.style.height = node.h+'px';
+    el.dataset.id = node.id;
+
+    const body = document.createElement('div');
+    body.className = 'gate-body';
+    if(def.isInput || def.isClock){ body.innerHTML = `<div class="toggle-track"><div class="toggle-knob"></div></div>`; }
+    else if(def.isOutput){ body.innerHTML = `<div class="led"></div>`; }
+    else if(GATE_SVG[node.type]){ body.innerHTML = `<svg width="${node.w}" height="${node.h}" viewBox="0 0 ${node.w} ${node.h}">${GATE_SVG[node.type]}</svg>`; }
+    else { body.innerHTML = `<div class="ic-chip"><div class="chip-label">${def.label||node.type}</div></div>`; }
+    el.appendChild(body);
+
+    if(def.isClock){
+      const btn = document.createElement('div');
+      btn.className = 'autorun-btn'; btn.textContent = '▶';
+      btn.addEventListener('pointerdown', e=>e.stopPropagation());
+      btn.addEventListener('click', e=>{
+        e.stopPropagation();
+        node.running = !node.running;
+        btn.textContent = node.running ? '⏸' : '▶';
+        btn.classList.toggle('active', node.running);
+        if(node.running){ node.timer = setInterval(()=>{ node.state = node.state?0:1; evaluate(); }, 500/simSpeed); }
+        else { clearInterval(node.timer); node.timer=null; }
+        renderStats();
+      });
+      el.appendChild(btn);
+    }
+
+    const label = document.createElement('div');
+    label.className = 'glabel';
+    label.textContent = (def.isInput || def.isOutput || def.isClock) ? (node.label||node.type) : (def.label ? '' : node.type);
+    if(label.textContent) el.appendChild(label);
+
+    const del = document.createElement('div');
+    del.className = 'del-btn'; del.textContent = '×';
+    del.addEventListener('pointerdown', e=>e.stopPropagation());
+    del.addEventListener('click', e=>{ e.stopPropagation(); pushUndo(); deleteNode(node.id); });
+    el.appendChild(del);
+
+    const rot = document.createElement('div');
+    rot.className = 'rotate-btn'; rot.textContent = '⟳';
+    rot.addEventListener('pointerdown', e=>e.stopPropagation());
+    rot.addEventListener('click', e=>{ e.stopPropagation(); pushUndo(); node.rot=((node.rot||0)+90)%360; positionNode(node); renderWires(); });
+    el.appendChild(rot);
+
+    const showTags = (def.category==='circuit' || def.category==='sequential');
+    const pp = pinPositions(node);
+    pp.inputs.forEach((p,i)=>{
+      const pin = document.createElement('div');
+      pin.className='pin pin-in'; pin.style.left=p.x+'px'; pin.style.top=p.y+'px';
+      pin.dataset.role='in'; pin.dataset.slot=i; pin.dataset.nodeId=node.id;
+      pin.addEventListener('pointerup', e=>{ e.stopPropagation(); onPinUp(node.id, i); });
+      el.appendChild(pin);
+      if(showTags){ const tag=document.createElement('div'); tag.className='pin-tag'; tag.style.left=(p.x+8)+'px'; tag.style.top=p.y+'px'; tag.style.textAlign='left'; tag.textContent=p.name; el.appendChild(tag); }
+    });
+    pp.outputs.forEach((p,i)=>{
+      const pin = document.createElement('div');
+      pin.className='pin pin-out'; pin.style.left=p.x+'px'; pin.style.top=p.y+'px';
+      pin.dataset.role='out'; pin.dataset.slot=i; pin.dataset.nodeId=node.id;
+      pin.addEventListener('pointerdown', e=>{ e.stopPropagation(); onPinDown(node.id, i); });
+      el.appendChild(pin);
+      if(showTags){ const tag=document.createElement('div'); tag.className='pin-tag'; tag.style.left=(p.x-8)+'px'; tag.style.top=p.y+'px'; tag.style.textAlign='right'; tag.style.transform='translate(-100%,-50%)'; tag.textContent=p.name; el.appendChild(tag); }
+    });
+
+    body.addEventListener('pointerdown', e=>onBodyDown(node.id, e));
+    el.addEventListener('contextmenu', e=>{ e.preventDefault(); showEducational(node); });
+    return el;
+  }
+
+  function positionNode(node){
+    node.el.style.left = node.x+'px'; node.el.style.top = node.y+'px';
+    node.el.style.transform = `rotate(${node.rot||0}deg)`;
+  }
+  function deleteNode(id){
+    const node = nodes.get(id);
+    if(!node) return;
+    if(node.timer) clearInterval(node.timer);
+    connections = connections.filter(c => c.from!==id && c.to!==id);
+    node.el.remove(); nodes.delete(id);
+    if(selectedNodeId===id) selectedNodeId=null;
+    evaluate();
+  }
+
+  // ================= Simulation =================
+  function propagateInputs(){
+    nodes.forEach(n => { n.inVals = new Array(n.inputs.length).fill(0); });
+    connections.forEach(c => {
+      const src = nodes.get(c.from), dst = nodes.get(c.to);
+      if(!src || !dst) return;
+      const srcVal = (src.def.isInput || src.def.isClock) ? (src.state?1:0) : (src.outVals[c.fromSlot]||0);
+      dst.inVals[c.slot] = srcVal;
+    });
+  }
+  function computeCombinational(node){
+    const def = node.def;
+    if(def.isInput || def.isClock) return [node.state?1:0];
+    if(def.isOutput) return [];
+    if(def.compute) return def.compute(node.inVals);
+    return new Array(node.outputs.length).fill(0);
+  }
+  function updateSequential(node){
+    const def = node.def;
+    const clkIdx = node.inputs.indexOf('CLK');
+    const clkVal = clkIdx>=0 ? (node.inVals[clkIdx]||0) : 0;
+    const rising = (clkVal===1 && node.prevClk===0);
+    node.outVals = def.seq(node, node.inVals, rising);
+    node.prevClk = clkVal;
+  }
+  function evaluate(){
+    for(let iter=0; iter<10; iter++){ propagateInputs(); nodes.forEach(n=>{ if(!n.def.sequential) n.outVals = computeCombinational(n); }); }
+    nodes.forEach(n=>{ if(n.def.sequential) updateSequential(n); });
+    for(let iter=0; iter<10; iter++){ propagateInputs(); nodes.forEach(n=>{ if(!n.def.sequential) n.outVals = computeCombinational(n); }); }
+    nodes.forEach(updateNodeVisual);
+    renderWires(); renderExpressions(); renderStats(); renderMiniMap();
+  }
+  function updateNodeVisual(node){
+    const el=node.el, def=node.def;
+    if(def.isInput || def.isClock){ const t=el.querySelector('.toggle-track'); if(t) t.classList.toggle('on', !!node.state); }
+    if(def.isOutput){ const led=el.querySelector('.led'); if(led) led.classList.toggle('on', !!node.inVals[0]); }
+    el.querySelectorAll('.pin-in').forEach((pin,i)=> pin.classList.toggle('pin-on', !!node.inVals[i]));
+    el.querySelectorAll('.pin-out').forEach((pin,i)=> pin.classList.toggle('pin-on', !!node.outVals[i]));
+  }
+
+  // ================= Wires =================
+  function bezierPath(x1,y1,x2,y2){ const dx=Math.max(Math.abs(x2-x1)*0.5,40); return `M${x1},${y1} C${x1+dx},${y1} ${x2-dx},${y2} ${x2},${y2}`; }
+  function renderWires(){
+    wireLayer.innerHTML = '';
+    connections.forEach(c => {
+      const src=nodes.get(c.from), dst=nodes.get(c.to);
+      if(!src || !dst) return;
+      const p1=nodePinBoardPos(src,'out',c.fromSlot), p2=nodePinBoardPos(dst,'in',c.slot);
+      const d = bezierPath(p1.x,p1.y,p2.x,p2.y);
+      const hit=document.createElementNS('http://www.w3.org/2000/svg','path');
+      hit.setAttribute('d',d); hit.setAttribute('class','wire-hit');
+      hit.addEventListener('click', e=>{ e.stopPropagation(); selectedConnId=c.id; selectedNodeId=null; updateSelectionClasses(); });
+      wireLayer.appendChild(hit);
+      const on = (src.def.isInput || src.def.isClock) ? !!src.state : !!(src.outVals && src.outVals[c.fromSlot]);
+      let cls = 'wire ' + (on?'on':'off');
+      if(c.id===selectedConnId) cls += ' wire-selected';
+      else if(selectedNodeId && (c.from===selectedNodeId || c.to===selectedNodeId)) cls += ' wire-highlight';
+      const wire=document.createElementNS('http://www.w3.org/2000/svg','path');
+      wire.setAttribute('d',d); wire.setAttribute('class',cls);
+      wireLayer.appendChild(wire);
+    });
+    if(wireState){
+      const temp=document.createElementNS('http://www.w3.org/2000/svg','path');
+      temp.setAttribute('d', bezierPath(wireState.x1,wireState.y1,wireState.x2,wireState.y2));
+      temp.setAttribute('class','temp-wire');
+      wireLayer.appendChild(temp);
+    }
+  }
+  function updateSelectionClasses(){ nodes.forEach(n=>n.el.classList.toggle('selected', n.id===selectedNodeId)); renderWires(); }
+
+  // ================= Boolean expressions =================
+  function exprForPin(nodeId, outSlot, depth){
+    if(depth>50) return '…';
+    const node = nodes.get(nodeId);
+    if(!node) return '?';
+    const def = node.def;
+    if(def.isInput || def.isClock) return node.label;
+    const inExprs = node.inputs.map((name,i)=>{
+      const conn = connections.find(c=>c.to===nodeId && c.slot===i);
+      return conn ? exprForPin(conn.from, conn.fromSlot, depth+1) : '0';
+    });
+    if(def.category==='circuit' || def.sequential){
+      const nm = def.label || node.type; const outName = node.outputs[outSlot] || '';
+      return `${nm}(${inExprs.join(',')}).${outName}`;
+    }
+    switch(node.type){
+      case 'NOT': return `¬${inExprs[0]}`;
+      case 'AND': return `(${inExprs[0]}·${inExprs[1]})`;
+      case 'OR': return `(${inExprs[0]}+${inExprs[1]})`;
+      case 'NAND': return `¬(${inExprs[0]}·${inExprs[1]})`;
+      case 'NOR': return `¬(${inExprs[0]}+${inExprs[1]})`;
+      case 'XOR': return `(${inExprs[0]}⊕${inExprs[1]})`;
+      case 'XNOR': return `¬(${inExprs[0]}⊕${inExprs[1]})`;
+      default: return node.type;
+    }
+  }
+  function renderExpressions(){
+    const list = document.getElementById('exprList');
+    list.innerHTML = ''; let any=false;
+    nodes.forEach(n=>{
+      if(n.def.isOutput){
+        any=true;
+        const conn = connections.find(c=>c.to===n.id && c.slot===0);
+        const expr = conn ? exprForPin(conn.from, conn.fromSlot, 0) : '0';
+        const row = document.createElement('div');
+        row.className='expr-row'; row.innerHTML = `<span class="en">${n.label}</span> = <span class="eb">${expr}</span>`;
+        list.appendChild(row);
+      }
+    });
+    if(!any) list.innerHTML = '<div class="expr-empty">Add an LED output to see its Boolean equation here.</div>';
+  }
+
+  // ================= Validation =================
+  function validateCircuit(){
+    const issues=[];
+    nodes.forEach(node=>{
+      const pinsIn=node.el.querySelectorAll('.pin-in'), pinsOut=node.el.querySelectorAll('.pin-out');
+      node.inputs.forEach((name,i)=>{
+        const has = connections.some(c=>c.to===node.id && c.slot===i);
+        if(pinsIn[i]) pinsIn[i].classList.toggle('pin-floating', !has);
+        if(!has) issues.push(`${node.label||node.type} — input "${name}" is floating (no driver).`);
+      });
+      node.outputs.forEach((name,i)=>{
+        const has = connections.some(c=>c.from===node.id && c.fromSlot===i);
+        if(pinsOut[i]) pinsOut[i].classList.toggle('pin-unconnected', !has);
+        if(!has) issues.push(`${node.label||node.type} — output "${name}" is unconnected.`);
+      });
+    });
+    connections.forEach(c=>{ if(!nodes.has(c.from) || !nodes.has(c.to)) issues.push('A wire references a deleted component (broken connection).'); });
+    renderValidation(issues);
+    document.querySelector('.rp-tab[data-tab="val"]').click();
+  }
+  function renderValidation(issues){
+    const list = document.getElementById('valList');
+    list.innerHTML='';
+    if(issues.length===0){
+      list.innerHTML = '<div class="val-ok">✓ No floating inputs, unconnected outputs, or broken wires. Each input can only ever have one driver, so short circuits cannot occur in this model.</div>';
+    } else {
+      issues.forEach(i=>{ const d=document.createElement('div'); d.className='val-issue'; d.textContent='⚠ '+i; list.appendChild(d); });
+    }
+  }
+
+  // ================= Stats =================
+  function renderStats(){
+    const el = document.getElementById('statsList');
+    if(!el) return;
+    let gates=0, inputs=0, outputs=0, clocksRunning=0, clocksTotal=0;
+    nodes.forEach(n=>{
+      if(n.def.category==='gate' || n.def.category==='circuit' || n.def.sequential) gates++;
+      if(n.def.isInput) inputs++;
+      if(n.def.isOutput) outputs++;
+      if(n.def.isClock){ clocksTotal++; if(n.running) clocksRunning++; }
+    });
+    el.innerHTML = `
+      <div class="stat-row"><span>Gates</span><b>${gates}</b></div>
+      <div class="stat-row"><span>Inputs</span><b>${inputs}</b></div>
+      <div class="stat-row"><span>Outputs</span><b>${outputs}</b></div>
+      <div class="stat-row"><span>Connections</span><b>${connections.length}</b></div>
+      <div class="stat-row"><span>Clock</span><b>${clocksTotal===0?'—':(clocksRunning>0?'Running':'Idle')}</b></div>
+      <div class="stat-row"><span>Sim Speed</span><b>${simSpeed}x</b></div>
+    `;
+  }
+
+  // ================= Minimap =================
+  function renderMiniMap(){
+    const W=180, H=104;
+    miniMap.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    miniMap.innerHTML='';
+    const sx=W/2600, sy=H/1500;
+    const bg=document.createElementNS('http://www.w3.org/2000/svg','rect');
+    bg.setAttribute('x',0); bg.setAttribute('y',0); bg.setAttribute('width',W); bg.setAttribute('height',H);
+    bg.setAttribute('fill','var(--board)');
+    miniMap.appendChild(bg);
+    nodes.forEach(n=>{
+      const r=document.createElementNS('http://www.w3.org/2000/svg','rect');
+      r.setAttribute('x', n.x*sx); r.setAttribute('y', n.y*sy);
+      r.setAttribute('width', Math.max(2,n.w*sx)); r.setAttribute('height', Math.max(2,n.h*sy));
+      r.setAttribute('fill','var(--copper)'); r.setAttribute('opacity','0.75');
+      miniMap.appendChild(r);
+    });
+    const vpRect = boardViewport.getBoundingClientRect();
+    const vx=(-view.tx/view.scale)*sx, vy=(-view.ty/view.scale)*sy;
+    const vw=(vpRect.width/view.scale)*sx, vh=(vpRect.height/view.scale)*sy;
+    const vpEl=document.createElementNS('http://www.w3.org/2000/svg','rect');
+    vpEl.setAttribute('x',vx); vpEl.setAttribute('y',vy); vpEl.setAttribute('width',vw); vpEl.setAttribute('height',vh);
+    vpEl.setAttribute('fill','none'); vpEl.setAttribute('stroke','var(--signal-on)'); vpEl.setAttribute('stroke-width','1.5');
+    miniMap.appendChild(vpEl);
+  }
+  function miniMapJump(e){
+    const rect = miniMap.getBoundingClientRect();
+    const localX = (e.clientX-rect.left)/rect.width*2600;
+    const localY = (e.clientY-rect.top)/rect.height*1500;
+    const vpRect = boardViewport.getBoundingClientRect();
+    view.tx = vpRect.width/2 - localX*view.scale;
+    view.ty = vpRect.height/2 - localY*view.scale;
+    applyView(); renderMiniMap();
+  }
+  miniMap.addEventListener('pointerdown', e=>{ miniMapDrag=true; miniMapJump(e); });
+
+  // ================= Truth table (whole circuit) =================
+  function generateTruthTable(){
+    const inputNodes=[...nodes.values()].filter(n=>n.def.isInput);
+    const outputNodes=[...nodes.values()].filter(n=>n.def.isOutput);
+    if(inputNodes.length===0 || outputNodes.length===0){ openModal('Truth Table', '<div class="edu-note">Add at least one SWITCH and one LED to the board to generate a truth table.</div>'); return; }
+    if(inputNodes.length>8){ openModal('Truth Table', '<div class="edu-note">Too many switches (8 max) to safely enumerate. Remove some inputs first.</div>'); return; }
+    const saved = inputNodes.map(n=>n.state);
+    const n = inputNodes.length; let rows='';
+    for(let mask=0; mask<(1<<n); mask++){
+      inputNodes.forEach((node,i)=>{ node.state = (mask>>(n-1-i))&1; });
+      evaluate();
+      const cellsIn = inputNodes.map(node=>`<td>${node.state}</td>`).join('');
+      const cellsOut = outputNodes.map(node=>`<td>${node.inVals[0]||0}</td>`).join('');
+      rows += `<tr>${cellsIn}${cellsOut}</tr>`;
+    }
+    inputNodes.forEach((node,i)=>{ node.state = saved[i]; });
+    evaluate();
+    const head = inputNodes.map(n=>`<th>${n.label}</th>`).join('') + outputNodes.map(n=>`<th>${n.label}</th>`).join('');
+    openModal('Truth Table', `<table class="tt-table"><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table>`);
+  }
+
+  // ================= Educational modal =================
+  function showEducational(node){
+    const def = node.def;
+    const info = EDU_INFO[node.type] || { equation:'—', application:'No description available.' };
+    let symbolHTML;
+    if(GATE_SVG[node.type]) symbolHTML = `<svg width="90" height="60" viewBox="0 0 ${node.w} ${node.h}">${GATE_SVG[node.type]}</svg>`;
+    else if(def.isInput) symbolHTML = `<div class="edu-note">Manual toggle switch</div>`;
+    else if(def.isOutput) symbolHTML = `<div class="edu-note">Indicator LED</div>`;
+    else if(def.isClock) symbolHTML = `<div class="edu-note">Oscillating clock source</div>`;
+    else symbolHTML = paletteChipSVG((def.label||node.type).slice(0,5));
+    let tableHTML='';
+    if(def.compute){
+      const n=def.inputs.length; let rows='';
+      for(let m=0; m<(1<<n); m++){
+        const ins=[]; for(let i=0;i<n;i++) ins.push((m>>(n-1-i))&1);
+        const outs = def.compute(ins);
+        rows += `<tr>${ins.map(v=>`<td>${v}</td>`).join('')}${outs.map(v=>`<td>${v}</td>`).join('')}</tr>`;
+      }
+      tableHTML = `<table class="tt-table"><thead><tr>${def.inputs.map(nm=>`<th>${nm}</th>`).join('')}${def.outputs.map(nm=>`<th>${nm}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table>`;
+    } else if(def.sequential){
+      tableHTML = `<div class="edu-note">Sequential element — its output depends on stored state and clock edges, not just the current inputs, so a static truth table doesn't apply.</div>`;
+    } else { tableHTML = `<div class="edu-note">N/A</div>`; }
+    openModal(`${def.label||node.type} — ${node.type}`, `
+      <h4>Symbol</h4><div class="edu-symbol">${symbolHTML}</div>
+      <h4>Boolean Equation</h4><div class="edu-eq">${info.equation}</div>
+      <h4>Truth Table</h4>${tableHTML}
+      <h4>Real-World Application</h4><div class="edu-app">${info.application}</div>
+    `);
+  }
+  function openModal(title, bodyHTML){
+    modalOverlay.innerHTML = `<div class="modal"><div class="modal-head"><span>${title}</span><span class="modal-close">×</span></div><div class="modal-body">${bodyHTML}</div></div>`;
+    modalOverlay.classList.add('show');
+    modalOverlay.querySelector('.modal-close').addEventListener('click', closeModal);
+  }
+  function closeModal(){ modalOverlay.classList.remove('show'); modalOverlay.innerHTML=''; }
+  modalOverlay.addEventListener('click', e=>{ if(e.target===modalOverlay) closeModal(); });
+
+  // ================= Undo =================
+  function snapshot(){
+    return JSON.stringify({
+      nextId, letterIdx, outputIdx,
+      nodes: [...nodes.values()].map(n=>({ id:n.id, type:n.type, x:n.x, y:n.y, rot:n.rot, state:n.state, label:n.label, mem:n.mem, prevClk:n.prevClk })),
+      connections: connections.map(c=>({ id:c.id, from:c.from, fromSlot:c.fromSlot, to:c.to, slot:c.slot }))
+    });
+  }
+  function pushUndo(){ undoStack.push(snapshot()); if(undoStack.length>40) undoStack.shift(); }
+  function restoreSnapshot(json){
+    const data = JSON.parse(json);
+    nodes.forEach(n=>{ if(n.timer) clearInterval(n.timer); n.el.remove(); });
+    nodes.clear(); connections=[];
+    nextId=data.nextId; letterIdx=data.letterIdx; outputIdx=data.outputIdx;
+    data.nodes.forEach(nd=>instantiateNode(nd.type, nd.x, nd.y, nd));
+    data.connections.forEach(c=>connections.push({...c}));
+    selectedNodeId=null; selectedConnId=null;
+    evaluate();
+  }
+
+  // ================= Project save/open =================
+  function projectJSON(){
+    return JSON.stringify({
+      nodes: [...nodes.values()].map(n=>({id:n.id,type:n.type,x:n.x,y:n.y,rot:n.rot,state:n.state,label:n.label,mem:n.mem,prevClk:n.prevClk})),
+      connections: connections.map(c=>({id:c.id,from:c.from,fromSlot:c.fromSlot,to:c.to,slot:c.slot}))
+    }, null, 2);
+  }
+  function downloadText(filename, text, mime){
+    const blob = new Blob([text], {type:mime});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href=url; a.download=filename; document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  }
+  let saveCount = parseInt(localStorage.getItem('lb_save_count')||'0',10);
+  function saveToRecent(json){
+    saveCount++; localStorage.setItem('lb_save_count', saveCount);
+    let list = JSON.parse(localStorage.getItem('lb_recent')||'[]');
+    list.unshift({ name:'Project '+saveCount, json, ts:Date.now() });
+    list = list.slice(0,6);
+    localStorage.setItem('lb_recent', JSON.stringify(list));
+    renderRecent();
+  }
+  function renderRecent(){
+    const bar = document.getElementById('recentBar');
+    const list = JSON.parse(localStorage.getItem('lb_recent')||'[]');
+    bar.innerHTML = list.length ? '<span class="recent-label">RECENT:</span>' : '<span class="recent-label" style="opacity:.5">No saved projects yet — use File → Save.</span>';
+    list.forEach(item=>{
+      const chip=document.createElement('span');
+      chip.className='recent-chip'; chip.textContent=item.name;
+      chip.addEventListener('click', ()=>loadProjectJSON(item.json));
+      bar.appendChild(chip);
+    });
+  }
+  function loadProjectJSON(jsonStr){
+    let data;
+    try{ data = JSON.parse(jsonStr); } catch(err){ alert('Invalid project file — could not parse JSON.'); return; }
+    if(!data.nodes || !data.connections){ alert('Invalid project format — expected {"nodes":[...], "connections":[...]}.'); return; }
+    pushUndo();
+    nodes.forEach(n=>{ if(n.timer) clearInterval(n.timer); n.el.remove(); });
+    nodes.clear(); connections=[];
+    let maxNumId=0, maxLetter=-1, maxY=0;
+    data.nodes.forEach(nd=>{
+      if(!COMPONENTS[nd.type]) return;
+      instantiateNode(nd.type, nd.x||0, nd.y||0, nd);
+      const m = /^n(\d+)$/.exec(nd.id||''); if(m) maxNumId = Math.max(maxNumId, parseInt(m[1],10));
+      if(nd.label){
+        if(/^[A-Z]$/.test(nd.label)) maxLetter = Math.max(maxLetter, LETTERS.indexOf(nd.label));
+        const ym = /^Y(\d+)$/.exec(nd.label); if(ym) maxY = Math.max(maxY, parseInt(ym[1],10));
+      }
+    });
+    nextId = maxNumId+1; letterIdx = maxLetter+1; outputIdx = maxY;
+    data.connections.forEach(c=>connections.push({ id:connIdCounter++, from:c.from, fromSlot:c.fromSlot, to:c.to, slot:c.slot }));
+    selectedNodeId=null; selectedConnId=null;
+    evaluate();
+  }
+
+  // ================= Pointer / view interaction =================
+  function screenToLocal(clientX, clientY){
+    const r = boardViewport.getBoundingClientRect();
+    return { x:(clientX-r.left-view.tx)/view.scale, y:(clientY-r.top-view.ty)/view.scale };
+  }
+  function isOverBoard(e){
+    const r = boardViewport.getBoundingClientRect();
+    return e.clientX>=r.left && e.clientX<=r.right && e.clientY>=r.top && e.clientY<=r.bottom;
+  }
+  function applyView(){ board.style.transform = `translate(${view.tx}px,${view.ty}px) scale(${view.scale})`; renderMiniMap(); }
+
+  function onBodyDown(id, e){
+    const node = nodes.get(id); if(!node) return;
+    e.stopPropagation();
+    selectedNodeId = id; selectedConnId = null; updateSelectionClasses();
+    pushUndo();
+    const bp = screenToLocal(e.clientX, e.clientY);
+    dragState = { id, offsetX:bp.x-node.x, offsetY:bp.y-node.y, moved:false, startX:bp.x, startY:bp.y };
+    node.el.classList.add('dragging');
+  }
+  function onPinDown(id, slot){
+    const node = nodes.get(id); if(!node) return;
+    pushUndo();
+    const p = nodePinBoardPos(node,'out',slot);
+    wireState = { fromId:id, fromSlot:slot, x1:p.x, y1:p.y, x2:p.x, y2:p.y };
+    renderWires();
+  }
+  function onPinUp(id, slot){
+    if(!wireState) return;
+    if(wireState.fromId===id){ wireState=null; renderWires(); return; }
+    connections = connections.filter(c => !(c.to===id && c.slot===slot));
+    connections.push({ id:connIdCounter++, from:wireState.fromId, fromSlot:wireState.fromSlot, to:id, slot });
+    wireState=null; evaluate();
+  }
+
+  document.addEventListener('pointermove', e=>{
+    if(paletteDrag){
+      if(Math.abs(e.clientX-paletteDrag.startX)>3 || Math.abs(e.clientY-paletteDrag.startY)>3) paletteDrag.moved=true;
+      paletteDrag.ghostEl.style.left = e.clientX+'px'; paletteDrag.ghostEl.style.top = e.clientY+'px';
+      boardViewport.classList.toggle('drag-over', isOverBoard(e));
+      return;
+    }
+    if(dragState){
+      const node = nodes.get(dragState.id); if(!node) return;
+      const bp = screenToLocal(e.clientX, e.clientY);
+      if(Math.abs(bp.x-dragState.startX)>3 || Math.abs(bp.y-dragState.startY)>3) dragState.moved=true;
+      let nx = Math.max(0, bp.x-dragState.offsetX), ny = Math.max(0, bp.y-dragState.offsetY);
+      if(snapToGrid){ nx = Math.round(nx/GRID)*GRID; ny = Math.round(ny/GRID)*GRID; }
+      node.x = nx; node.y = ny;
+      positionNode(node); renderWires(); renderMiniMap();
+      return;
+    }
+    if(wireState){ const bp = screenToLocal(e.clientX, e.clientY); wireState.x2=bp.x; wireState.y2=bp.y; renderWires(); return; }
+    if(panState){
+      if(!panState.moved && (Math.abs(e.clientX-panState.startX)>3 || Math.abs(e.clientY-panState.startY)>3)) panState.moved=true;
+      view.tx = panState.tx0 + (e.clientX-panState.startX);
+      view.ty = panState.ty0 + (e.clientY-panState.startY);
+      applyView();
+      return;
+    }
+    if(miniMapDrag){ miniMapJump(e); }
+  });
+
+  document.addEventListener('pointerup', e=>{
+    if(paletteDrag){
+      boardViewport.classList.remove('drag-over');
+      paletteDrag.ghostEl.remove();
+      if(isOverBoard(e)){
+        pushUndo();
+        const bp = screenToLocal(e.clientX, e.clientY);
+        const def = COMPONENTS[paletteDrag.type];
+        addNode(paletteDrag.type, Math.max(0,bp.x-def.w/2), Math.max(0,bp.y-(def.h||60)/2));
+      }
+      paletteDrag = null; return;
+    }
+    if(dragState){
+      const node = nodes.get(dragState.id);
+      if(node){
+        node.el.classList.remove('dragging');
+        if(!dragState.moved && (node.type==='INPUT' || node.type==='CLOCK')){ node.state = node.state?0:1; evaluate(); }
+      }
+      dragState = null; return;
+    }
+    if(wireState){ wireState=null; renderWires(); return; }
+    if(panState){ if(!panState.moved){ selectedNodeId=null; selectedConnId=null; updateSelectionClasses(); } panState=null; return; }
+    if(miniMapDrag){ miniMapDrag=false; }
+  });
+
+  board.addEventListener('pointerdown', e=>{
+    if(e.target!==board && e.target!==wireLayer) return;
+    panState = { startX:e.clientX, startY:e.clientY, tx0:view.tx, ty0:view.ty, moved:false };
+  });
+
+  boardViewport.addEventListener('wheel', e=>{
+    e.preventDefault();
+    const old = screenToLocal(e.clientX, e.clientY);
+    const factor = e.deltaY<0 ? 1.1 : 0.9;
+    view.scale = Math.min(2.2, Math.max(0.35, view.scale*factor));
+    const r = boardViewport.getBoundingClientRect();
+    view.tx = e.clientX - r.left - old.x*view.scale;
+    view.ty = e.clientY - r.top - old.y*view.scale;
+    applyView();
+  }, { passive:false });
+
+  document.addEventListener('keydown', e=>{
+    if(e.key==='Delete' || e.key==='Backspace'){
+      if(selectedConnId!==null){ pushUndo(); connections=connections.filter(c=>c.id!==selectedConnId); selectedConnId=null; evaluate(); e.preventDefault(); }
+      else if(selectedNodeId){ pushUndo(); deleteNode(selectedNodeId); selectedNodeId=null; updateSelectionClasses(); e.preventDefault(); }
+    } else if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='z'){
+      e.preventDefault();
+      if(undoStack.length){ restoreSnapshot(undoStack.pop()); }
+    } else if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='c'){
+      if(selectedNodeId){ const n = nodes.get(selectedNodeId); if(n) clipboard = { type:n.type, rot:n.rot }; }
+    } else if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='v'){
+      if(clipboard){
+        e.preventDefault(); pushUndo();
+        const ref = nodes.get(selectedNodeId);
+        const baseX = (ref?ref.x:200)+34, baseY = (ref?ref.y:200)+30;
+        const n = instantiateNode(clipboard.type, baseX, baseY, { rot:clipboard.rot });
+        selectedNodeId = n.id; evaluate(); updateSelectionClasses();
+      }
+    }
+  });
+
+  // ================= Auto arrange =================
+  function autoArrange(){
+    pushUndo();
+    const layer = new Map();
+    nodes.forEach(n=>layer.set(n.id,0));
+    let changed=true, guard=0;
+    while(changed && guard<200){
+      changed=false; guard++;
+      connections.forEach(c=>{
+        const lf=layer.get(c.from), lt=layer.get(c.to);
+        if(lf!==undefined && lt!==undefined && lf+1>lt){ layer.set(c.to, lf+1); changed=true; }
+      });
+    }
+    const byLayer = new Map();
+    nodes.forEach(n=>{ const l=layer.get(n.id)||0; if(!byLayer.has(l)) byLayer.set(l,[]); byLayer.get(l).push(n); });
+    [...byLayer.keys()].sort((a,b)=>a-b).forEach(l=>{
+      byLayer.get(l).forEach((n,i)=>{ n.x = 80 + l*190; n.y = 60 + i*110; positionNode(n); });
+    });
+    renderWires(); renderMiniMap();
+  }
+
+  // ================= Palette =================
+  function attachPaletteDrag(item){
+    item.addEventListener('pointerdown', e=>{
+      const type = item.dataset.type;
+      const ghost = item.cloneNode(true);
+      ghost.className = 'drag-ghost';
+      ghost.style.left = e.clientX+'px'; ghost.style.top = e.clientY+'px';
+      document.body.appendChild(ghost);
+      paletteDrag = { type, ghostEl:ghost, startX:e.clientX, startY:e.clientY, moved:false };
+      e.preventDefault();
+    });
+  }
+  document.querySelectorAll('.palette-item').forEach(attachPaletteDrag);
+
+  const CIRCUIT_LIST = [['HALF_ADDER','HA'],['FULL_ADDER','FA'],['MUX2','MUX'],['DEMUX2','DMX'],['ENCODER4','ENC'],['DECODER2','DEC'],['COMPARATOR','CMP']];
+  const SEQ_LIST = [['SR_LATCH','SR'],['JK_FLIPFLOP','JK'],['D_FLIPFLOP','D'],['T_FLIPFLOP','T'],['REGISTER4','REG'],['COUNTER4','CNT']];
+  function buildPaletteSection(containerId, list){
+    const container = document.getElementById(containerId);
+    list.forEach(([type,short])=>{
+      const div = document.createElement('div');
+      div.className='palette-item'; div.dataset.type=type;
+      div.innerHTML = paletteChipSVG(short) + `<span class="plabel">${(COMPONENTS[type].label||type).replace(/_/g,' ')}</span>`;
+      container.appendChild(div);
+      attachPaletteDrag(div);
+    });
+  }
+  buildPaletteSection('circuitItems', CIRCUIT_LIST);
+  buildPaletteSection('seqItems', SEQ_LIST);
+
+  document.getElementById('paletteSearch').addEventListener('input', e=>{
+    const q = e.target.value.trim().toLowerCase();
+    document.querySelectorAll('.palette-item').forEach(item=>{
+      const label = item.querySelector('.plabel').textContent.toLowerCase();
+      const type = (item.dataset.type||'').toLowerCase();
+      item.style.display = (!q || label.includes(q) || type.includes(q)) ? '' : 'none';
+    });
+  });
+
+  // ================= Right panel tabs =================
+  document.querySelectorAll('.rp-tab').forEach(tab=>{
+    tab.addEventListener('click', ()=>{
+      document.querySelectorAll('.rp-tab').forEach(t=>t.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById('exprList').style.display = tab.dataset.tab==='expr' ? 'block':'none';
+      document.getElementById('valList').style.display = tab.dataset.tab==='val' ? 'block':'none';
+      document.getElementById('statsList').style.display = tab.dataset.tab==='stats' ? 'block':'none';
+    });
+  });
+
+  // ================= Header controls =================
+  document.getElementById('clearBtn').addEventListener('click', ()=>{
+    pushUndo();
+    nodes.forEach(n=>{ if(n.timer) clearInterval(n.timer); n.el.remove(); });
+    nodes.clear(); connections=[];
+    selectedNodeId=null; selectedConnId=null;
+    renderWires(); renderExpressions(); renderStats(); renderMiniMap();
+  });
+  document.getElementById('validateBtn').addEventListener('click', validateCircuit);
+  document.getElementById('truthBtn').addEventListener('click', generateTruthTable);
+  document.getElementById('resetViewBtn').addEventListener('click', ()=>{ view={scale:1,tx:0,ty:0}; applyView(); });
+  document.getElementById('arrangeBtn').addEventListener('click', autoArrange);
+  document.getElementById('snapBtn').addEventListener('click', function(){
+    snapToGrid = !snapToGrid;
+    this.textContent = 'SNAP: ' + (snapToGrid ? 'ON' : 'OFF');
+    this.classList.toggle('active', snapToGrid);
+  });
+  document.querySelectorAll('.speed-group button').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('.speed-group button').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      simSpeed = parseFloat(btn.dataset.speed);
+      nodes.forEach(n=>{
+        if(n.def.isClock && n.running){
+          clearInterval(n.timer);
+          n.timer = setInterval(()=>{ n.state = n.state?0:1; evaluate(); }, 500/simSpeed);
+        }
+      });
+      renderStats();
+    });
+  });
+
+  // ================= File menu =================
+  const fileMenuBtn = document.getElementById('fileMenuBtn');
+  const fileDropdown = document.getElementById('fileDropdown');
+  fileMenuBtn.addEventListener('click', e=>{ e.stopPropagation(); fileDropdown.classList.toggle('open'); });
+  document.addEventListener('click', ()=>fileDropdown.classList.remove('open'));
+
+  document.getElementById('fdNew').addEventListener('click', ()=>{
+    if(nodes.size===0 || confirm('Start a new project? Unsaved changes will be lost (use File → Save first if needed).')){
+      pushUndo();
+      nodes.forEach(n=>{ if(n.timer) clearInterval(n.timer); n.el.remove(); });
+      nodes.clear(); connections=[]; selectedNodeId=null; selectedConnId=null;
+      renderWires(); renderExpressions(); renderStats(); renderMiniMap();
+    }
+  });
+  document.getElementById('fdSave').addEventListener('click', ()=>{
+    const json = projectJSON();
+    downloadText('logic_circuit.json', json, 'application/json');
+    saveToRecent(json);
+  });
+  document.getElementById('fdOpen').addEventListener('click', ()=>document.getElementById('fileOpenInput').click());
+  document.getElementById('fileOpenInput').addEventListener('change', e=>{
+    const file = e.target.files[0]; if(!file) return;
+    const reader = new FileReader();
+    reader.onload = () => loadProjectJSON(reader.result);
+    reader.readAsText(file);
+    e.target.value = '';
+  });
+  document.getElementById('fdExport').addEventListener('click', ()=>{
+    if(typeof html2canvas === 'undefined'){ alert('PNG export library failed to load — check your connection.'); return; }
+    const bg = getComputedStyle(document.documentElement).getPropertyValue('--board').trim() || '#0d2318';
+    html2canvas(board, { backgroundColor: bg }).then(canvas=>{
+      canvas.toBlob(blob=>{
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a'); a.href=url; a.download='logic_circuit.png'; document.body.appendChild(a); a.click(); a.remove();
+        URL.revokeObjectURL(url);
+      });
+    });
+  });
+
+  // ================= Theme =================
+  const themeToggle = document.getElementById('themeToggle');
+  function setTheme(t){
+    document.documentElement.dataset.theme = t;
+    localStorage.setItem('lb_theme', t);
+    themeToggle.textContent = t==='light' ? '🌙' : '☀️';
+  }
+  themeToggle.addEventListener('click', ()=> setTheme(document.documentElement.dataset.theme==='light' ? 'dark' : 'light'));
+  setTheme(localStorage.getItem('lb_theme') || 'dark');
+
+  // ================= Download whole app =================
+  document.getElementById('downloadAppBtn').addEventListener('click', ()=>{
+    const htmlContent = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+    downloadText('logic-board.html', htmlContent, 'text/html');
+  });
+
+  // ================= Learn table =================
+  (function buildLearnTable(){
+    const tbody = document.querySelector('#learnTable tbody');
+    Object.keys(EDU_INFO).forEach(type=>{
+      const def = COMPONENTS[type];
+      const name = (def && def.label) || type;
+      const info = EDU_INFO[type];
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${name}</td><td>${info.equation}</td><td>${info.application}</td>`;
+      tbody.appendChild(tr);
+    });
+  })();
+
+  // ================= Examples =================
+  function clearBoardSilent(){
+    nodes.forEach(n=>{ if(n.timer) clearInterval(n.timer); n.el.remove(); });
+    nodes.clear(); connections=[]; selectedNodeId=null; selectedConnId=null;
+  }
+  function loadExample(name){
+    pushUndo(); clearBoardSilent();
+    if(name==='halfadder'){
+      const a=instantiateNode('INPUT',80,100), b=instantiateNode('INPUT',80,240);
+      const ha=instantiateNode('HALF_ADDER',330,140);
+      const s=instantiateNode('OUTPUT',580,110), c=instantiateNode('OUTPUT',580,230);
+      connections.push({id:connIdCounter++,from:a.id,fromSlot:0,to:ha.id,slot:0});
+      connections.push({id:connIdCounter++,from:b.id,fromSlot:0,to:ha.id,slot:1});
+      connections.push({id:connIdCounter++,from:ha.id,fromSlot:0,to:s.id,slot:0});
+      connections.push({id:connIdCounter++,from:ha.id,fromSlot:1,to:c.id,slot:0});
+    } else if(name==='srlatch'){
+      const s=instantiateNode('INPUT',80,80), r=instantiateNode('INPUT',80,200), clk=instantiateNode('CLOCK',80,320);
+      const ff=instantiateNode('SR_LATCH',330,150);
+      const q=instantiateNode('OUTPUT',600,120), nq=instantiateNode('OUTPUT',600,230);
+      connections.push({id:connIdCounter++,from:s.id,fromSlot:0,to:ff.id,slot:0});
+      connections.push({id:connIdCounter++,from:r.id,fromSlot:0,to:ff.id,slot:1});
+      connections.push({id:connIdCounter++,from:clk.id,fromSlot:0,to:ff.id,slot:2});
+      connections.push({id:connIdCounter++,from:ff.id,fromSlot:0,to:q.id,slot:0});
+      connections.push({id:connIdCounter++,from:ff.id,fromSlot:1,to:nq.id,slot:0});
+    } else if(name==='counter'){
+      const clk=instantiateNode('CLOCK',80,180), rst=instantiateNode('INPUT',80,320);
+      const cnt=instantiateNode('COUNTER4',330,150);
+      const q0=instantiateNode('OUTPUT',600,60), q1=instantiateNode('OUTPUT',600,150), q2=instantiateNode('OUTPUT',600,240), q3=instantiateNode('OUTPUT',600,330);
+      connections.push({id:connIdCounter++,from:clk.id,fromSlot:0,to:cnt.id,slot:0});
+      connections.push({id:connIdCounter++,from:rst.id,fromSlot:0,to:cnt.id,slot:1});
+      connections.push({id:connIdCounter++,from:cnt.id,fromSlot:0,to:q0.id,slot:0});
+      connections.push({id:connIdCounter++,from:cnt.id,fromSlot:1,to:q1.id,slot:0});
+      connections.push({id:connIdCounter++,from:cnt.id,fromSlot:2,to:q2.id,slot:0});
+      connections.push({id:connIdCounter++,from:cnt.id,fromSlot:3,to:q3.id,slot:0});
+    } else if(name==='mux'){
+      const i0=instantiateNode('INPUT',80,80), i1=instantiateNode('INPUT',80,200), sel=instantiateNode('INPUT',80,320);
+      const mux=instantiateNode('MUX2',330,150);
+      const y=instantiateNode('OUTPUT',600,170);
+      connections.push({id:connIdCounter++,from:i0.id,fromSlot:0,to:mux.id,slot:0});
+      connections.push({id:connIdCounter++,from:i1.id,fromSlot:0,to:mux.id,slot:1});
+      connections.push({id:connIdCounter++,from:sel.id,fromSlot:0,to:mux.id,slot:2});
+      connections.push({id:connIdCounter++,from:mux.id,fromSlot:0,to:y.id,slot:0});
+    }
+    evaluate();
+    showPage('simulator');
+  }
+  document.querySelectorAll('[data-example]').forEach(btn=>{
+    btn.addEventListener('click', ()=>loadExample(btn.dataset.example));
+  });
+
+  // ================= Page switching =================
+  function showPage(id){
+    document.querySelectorAll('.site-page').forEach(p => p.classList.toggle('active', p.id === id));
+    document.querySelectorAll('.site-nav .links a').forEach(a => a.classList.toggle('active', a.getAttribute('href') === '#' + id));
+    window.scrollTo(0, 0);
+  }
+  document.querySelectorAll('a[href^="#"]').forEach(a => {
+    const target = a.getAttribute('href').slice(1);
+    if(document.getElementById(target) && document.getElementById(target).classList.contains('site-page')){
+      a.addEventListener('click', e => { e.preventDefault(); showPage(target); });
+    }
+  });
+  showPage('home');
+
+  // ================= Starter circuit =================
+  const a = instantiateNode('INPUT', 80, 100);
+  const b = instantiateNode('INPUT', 80, 220);
+  const g = instantiateNode('AND', 300, 150);
+  const o = instantiateNode('OUTPUT', 520, 165);
+  connections.push({ id:connIdCounter++, from:a.id, fromSlot:0, to:g.id, slot:0 });
+  connections.push({ id:connIdCounter++, from:b.id, fromSlot:0, to:g.id, slot:1 });
+  connections.push({ id:connIdCounter++, from:g.id, fromSlot:0, to:o.id, slot:0 });
+  evaluate();
+  renderRecent();
+})();
+</script>
+</body>
+</html>
