@@ -213,7 +213,7 @@
     <a href="#simulator">Live Simulator</a>
     <a href="#learn">Learn</a>
     <a href="#examples">Examples</a>
-    <a href="#download">Download</a>
+    <a href="#download">Saved</a>
     <a href="#contact">Contact</a>
   </div>
   <button class="theme-toggle" id="themeToggle">☀️</button>
@@ -390,11 +390,16 @@
 </section>
 
 <section id="download" class="site-section site-page">
-  <h2>Download</h2>
-  <p class="lede">CJD LOGIC/BOARD is a single HTML file with no server and no dependencies beyond one CDN script used only for PNG export. Save it once and it runs offline forever.</p>
+  <h2>Saved</h2>
+  <p class="lede">Every circuit you save from the simulator (File → Save) is kept here, stored right in this browser — click Load to pick up where you left off. CJD LOGIC/BOARD itself is a single HTML file with no server and no dependencies beyond one CDN script used only for PNG export, so it runs offline forever.</p>
+
+  <h3 style="font-size:12px; letter-spacing:1px; color:var(--signal-on); margin-bottom:12px;">YOUR SAVED PROJECTS</h3>
+  <div class="cards-grid" id="savedProjectsGrid"></div>
+
+  <h3 style="font-size:12px; letter-spacing:1px; color:var(--signal-on); margin:34px 0 12px;">DOWNLOAD</h3>
   <div class="cards-grid">
     <div class="card"><h3>Download this app</h3><p>Saves the page you're looking at right now — including whatever circuit is currently on the board — as one <code>logic-board.html</code> file you can open in any browser.</p><button id="downloadAppBtn">Download .html</button></div>
-    <div class="card"><h3>Save a project</h3><p>Use File → Save in the simulator above to export just your circuit as a portable <code>.json</code> file.</p></div>
+    <div class="card"><h3>Save a project</h3><p>Use File → Save in the simulator above to export your circuit as a portable <code>.json</code> file — it'll also appear in the list above.</p></div>
   </div>
 </section>
 
@@ -950,6 +955,7 @@
     list = list.slice(0,6);
     localStorage.setItem('lb_recent', JSON.stringify(list));
     renderRecent();
+    renderSavedProjectsPage();
   }
   function renderRecent(){
     const bar = document.getElementById('recentBar');
@@ -1343,6 +1349,39 @@
   });
   showPage('home');
 
+  function renderSavedProjectsPage(){
+    const grid = document.getElementById('savedProjectsGrid');
+    if(!grid) return;
+    const list = JSON.parse(localStorage.getItem('lb_recent')||'[]');
+    if(list.length === 0){
+      grid.innerHTML = '<p class="lede" style="margin:0;">No saved projects yet. Open the Live Simulator, build something, then use File → Save.</p>';
+      return;
+    }
+    grid.innerHTML = '';
+    list.forEach((item, idx) => {
+      const card = document.createElement('div');
+      card.className = 'card';
+      const when = new Date(item.ts).toLocaleString();
+      card.innerHTML = `<h3>${item.name}</h3><p>Saved ${when}</p>`;
+      const loadBtn = document.createElement('button');
+      loadBtn.textContent = 'Load';
+      loadBtn.style.marginRight = '8px';
+      loadBtn.addEventListener('click', () => { loadProjectJSON(item.json); showPage('simulator'); });
+      const delBtn = document.createElement('button');
+      delBtn.textContent = 'Delete';
+      delBtn.style.borderColor = 'var(--danger)';
+      delBtn.style.color = 'var(--danger)';
+      delBtn.addEventListener('click', () => {
+        const l = JSON.parse(localStorage.getItem('lb_recent')||'[]');
+        l.splice(idx,1);
+        localStorage.setItem('lb_recent', JSON.stringify(l));
+        renderRecent(); renderSavedProjectsPage();
+      });
+      card.appendChild(loadBtn); card.appendChild(delBtn);
+      grid.appendChild(card);
+    });
+  }
+
   // ================= Starter circuit =================
   const a = instantiateNode('INPUT', 80, 100);
   const b = instantiateNode('INPUT', 80, 220);
@@ -1353,6 +1392,7 @@
   connections.push({ id:connIdCounter++, from:g.id, fromSlot:0, to:o.id, slot:0 });
   evaluate();
   renderRecent();
+  renderSavedProjectsPage();
 })();
 </script>
 </body>
