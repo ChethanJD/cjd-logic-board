@@ -123,6 +123,15 @@
   .help-text b{ color:var(--silkscreen); }
   .drag-ghost{ position:fixed; top:0; left:0; pointer-events:none; z-index:999; opacity:0.85; transform:translate(-50%,-50%); filter:drop-shadow(0 4px 10px rgba(0,0,0,0.5)); }
 
+  .board-column{ flex:1; display:flex; flex-direction:column; min-width:0; min-height:0; }
+  .board-tabbar{ display:flex; align-items:center; gap:4px; padding:6px 8px 0; background:var(--panel); border-bottom:1px solid var(--panel-border); overflow-x:auto; flex-shrink:0; }
+  .tab-chip{ display:flex; align-items:center; gap:7px; padding:6px 10px; border-radius:4px 4px 0 0; background:var(--bg-deepest); border:1px solid var(--panel-border); border-bottom:none; font-size:10.5px; color:var(--silkscreen-dim); cursor:pointer; white-space:nowrap; }
+  .tab-chip.active{ background:var(--board); color:var(--signal-on); border-color:var(--board-line-strong); }
+  .tab-chip .tab-close{ opacity:0.6; }
+  .tab-chip .tab-close:hover{ opacity:1; color:var(--danger); }
+  .tab-add-btn{ padding:6px 12px; cursor:pointer; color:var(--silkscreen-dim); font-size:14px; border-radius:4px 4px 0 0; }
+  .tab-add-btn:hover{ color:var(--signal-on); background:rgba(107,255,158,0.08); }
+
   .board-viewport{ flex:1; position:relative; overflow:hidden; background:var(--board); }
   .board-viewport.drag-over::after{ content:''; position:absolute; inset:0; border:2px dashed var(--signal-on); pointer-events:none; z-index:5; }
   .board{ position:absolute; top:0; left:0; width:2600px; height:1500px; transform-origin:0 0; background-image:radial-gradient(circle, var(--board-line) 1px, transparent 1px); background-size:26px 26px; cursor:grab; }
@@ -181,6 +190,7 @@
   .val-ok{ font-size:11px; color:var(--signal-on); }
   .stat-row{ display:flex; justify-content:space-between; font-size:11.5px; padding:7px 2px; border-bottom:1px solid var(--panel-border); }
   .stat-row b{ color:var(--signal-on); }
+  .rp-subhead{ font-size:9.5px; letter-spacing:1px; color:var(--silkscreen-dim); text-transform:uppercase; margin:16px 0 8px; padding-top:12px; border-top:1px solid var(--panel-border); }
 
   .modal-overlay{ position:fixed; inset:0; background:rgba(3,10,6,0.72); display:none; align-items:center; justify-content:center; z-index:1000; }
   .modal-overlay.show{ display:flex; }
@@ -254,12 +264,12 @@
           <div class="file-dropdown" id="fileDropdown">
             <div class="fd-item" id="fdNew">New</div>
             <div class="fd-item" id="fdSave">Save</div>
+            <div class="fd-item" id="fdSaveDevice">Save to Device</div>
             <div class="fd-item" id="fdOpen">Open</div>
             <div class="fd-item" id="fdExport">Export PNG</div>
           </div>
         </div>
 
-        <button class="chip-btn" id="truthBtn">TRUTH TABLE</button>
         <button class="chip-btn" id="validateBtn">VALIDATE</button>
         <button class="chip-btn" id="arrangeBtn">ARRANGE</button>
         <button class="chip-btn" id="snapBtn">SNAP: OFF</button>
@@ -348,20 +358,27 @@
         </div>
       </aside>
 
-      <div class="board-viewport" id="boardViewport">
-        <div class="board" id="board">
-          <svg id="wireLayer"></svg>
+      <div class="board-column">
+        <div class="board-tabbar" id="boardTabbar"></div>
+        <div class="board-viewport" id="boardViewport">
+          <div class="board" id="board">
+            <svg id="wireLayer"></svg>
+          </div>
+          <svg id="miniMap" class="mini-map"></svg>
         </div>
-        <svg id="miniMap" class="mini-map"></svg>
       </div>
 
       <aside class="right-panel">
         <div class="rp-tabs">
-          <div class="rp-tab active" data-tab="expr">Σ EQNS</div>
+          <div class="rp-tab active" data-tab="expr">Σ EQNS + TABLE</div>
           <div class="rp-tab" data-tab="val">✓ CHECK</div>
           <div class="rp-tab" data-tab="stats">STATS</div>
         </div>
-        <div class="rp-body" id="exprList"></div>
+        <div class="rp-body" id="exprTab">
+          <div id="exprList"></div>
+          <div class="rp-subhead">TRUTH TABLE</div>
+          <div id="inlineTruthTable"></div>
+        </div>
         <div class="rp-body" id="valList" style="display:none;"></div>
         <div class="rp-body" id="statsList" style="display:none;"></div>
       </aside>
@@ -682,12 +699,15 @@
     node.outVals = def.seq(node, node.inVals, rising);
     node.prevClk = clkVal;
   }
-  function evaluate(){
+  function simulateCircuit(){
     for(let iter=0; iter<10; iter++){ propagateInputs(); nodes.forEach(n=>{ if(!n.def.sequential) n.outVals = computeCombinational(n); }); }
     nodes.forEach(n=>{ if(n.def.sequential) updateSequential(n); });
     for(let iter=0; iter<10; iter++){ propagateInputs(); nodes.forEach(n=>{ if(!n.def.sequential) n.outVals = computeCombinational(n); }); }
+  }
+  function evaluate(){
+    simulateCircuit();
     nodes.forEach(updateNodeVisual);
-    renderWires(); renderExpressions(); renderStats(); renderMiniMap();
+    renderWires(); renderExpressions(); renderStats(); renderMiniMap(); renderInlineTruthTable();
   }
   function updateNodeVisual(node){
     const el=node.el, def=node.def;
@@ -856,25 +876,33 @@
   }
   miniMap.addEventListener('pointerdown', e=>{ miniMapDrag=true; miniMapJump(e); });
 
-  // ================= Truth table (whole circuit) =================
-  function generateTruthTable(){
+  // ================= Truth table (whole circuit, shown inline in the right panel) =================
+  function renderInlineTruthTable(){
+    const container = document.getElementById('inlineTruthTable');
+    if(!container) return;
     const inputNodes=[...nodes.values()].filter(n=>n.def.isInput);
     const outputNodes=[...nodes.values()].filter(n=>n.def.isOutput);
-    if(inputNodes.length===0 || outputNodes.length===0){ openModal('Truth Table', '<div class="edu-note">Add at least one SWITCH and one LED to the board to generate a truth table.</div>'); return; }
-    if(inputNodes.length>8){ openModal('Truth Table', '<div class="edu-note">Too many switches (8 max) to safely enumerate. Remove some inputs first.</div>'); return; }
+    if(inputNodes.length===0 || outputNodes.length===0){
+      container.innerHTML = '<div class="expr-empty">Add at least one SWITCH and one LED to see a truth table here.</div>';
+      return;
+    }
+    if(inputNodes.length>8){
+      container.innerHTML = '<div class="expr-empty">Too many switches (8 max) to show a live table.</div>';
+      return;
+    }
     const saved = inputNodes.map(n=>n.state);
     const n = inputNodes.length; let rows='';
     for(let mask=0; mask<(1<<n); mask++){
       inputNodes.forEach((node,i)=>{ node.state = (mask>>(n-1-i))&1; });
-      evaluate();
+      simulateCircuit();
       const cellsIn = inputNodes.map(node=>`<td>${node.state}</td>`).join('');
       const cellsOut = outputNodes.map(node=>`<td>${node.inVals[0]||0}</td>`).join('');
       rows += `<tr>${cellsIn}${cellsOut}</tr>`;
     }
     inputNodes.forEach((node,i)=>{ node.state = saved[i]; });
-    evaluate();
+    simulateCircuit();
     const head = inputNodes.map(n=>`<th>${n.label}</th>`).join('') + outputNodes.map(n=>`<th>${n.label}</th>`).join('');
-    openModal('Truth Table', `<table class="tt-table"><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table>`);
+    container.innerHTML = `<table class="tt-table"><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table>`;
   }
 
   // ================= Educational modal =================
@@ -914,24 +942,112 @@
   function closeModal(){ modalOverlay.classList.remove('show'); modalOverlay.innerHTML=''; }
   modalOverlay.addEventListener('click', e=>{ if(e.target===modalOverlay) closeModal(); });
 
-  // ================= Undo =================
-  function snapshot(){
-    return JSON.stringify({
-      nextId, letterIdx, outputIdx,
-      nodes: [...nodes.values()].map(n=>({ id:n.id, type:n.type, x:n.x, y:n.y, rot:n.rot, state:n.state, label:n.label, mem:n.mem, prevClk:n.prevClk })),
-      connections: connections.map(c=>({ id:c.id, from:c.from, fromSlot:c.fromSlot, to:c.to, slot:c.slot }))
-    });
+  function openSaveAsModal(defaultName, confirmLabel, onConfirm){
+    openModal('Save As', `
+      <label style="font-size:11px;color:var(--silkscreen-dim);">Project name</label>
+      <input id="saveAsInput" type="text" value="${defaultName}" style="width:100%; margin-top:6px; padding:8px; background:var(--bg-deepest); color:var(--silkscreen); border:1px solid var(--panel-border); border-radius:4px; font-family:'IBM Plex Mono',monospace; font-size:12px;">
+      <div style="margin-top:16px; text-align:right;">
+        <button class="chip-btn" id="saveAsConfirm">${confirmLabel}</button>
+      </div>
+    `);
+    const input = document.getElementById('saveAsInput');
+    input.focus(); input.select();
+    const doConfirm = () => { const name = input.value.trim() || defaultName; closeModal(); onConfirm(name); };
+    document.getElementById('saveAsConfirm').addEventListener('click', doConfirm);
+    input.addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); doConfirm(); } });
   }
-  function pushUndo(){ undoStack.push(snapshot()); if(undoStack.length>40) undoStack.shift(); }
-  function restoreSnapshot(json){
-    const data = JSON.parse(json);
+
+  // ================= Undo / state capture (also used by tabs) =================
+  function currentStateObj(){
+    return {
+      nextId, letterIdx, outputIdx,
+      nodes: [...nodes.values()].map(n=>({ id:n.id, type:n.type, x:n.x, y:n.y, rot:n.rot, state:n.state, label:n.label, mem:n.mem, prevClk:n.prevClk, running:n.running })),
+      connections: connections.map(c=>({ id:c.id, from:c.from, fromSlot:c.fromSlot, to:c.to, slot:c.slot })),
+      view: { ...view }
+    };
+  }
+  function loadStateObj(data){
     nodes.forEach(n=>{ if(n.timer) clearInterval(n.timer); n.el.remove(); });
     nodes.clear(); connections=[];
-    nextId=data.nextId; letterIdx=data.letterIdx; outputIdx=data.outputIdx;
-    data.nodes.forEach(nd=>instantiateNode(nd.type, nd.x, nd.y, nd));
-    data.connections.forEach(c=>connections.push({...c}));
+    nextId=data.nextId||1; letterIdx=data.letterIdx||0; outputIdx=data.outputIdx||0;
+    (data.nodes||[]).forEach(nd=>{
+      if(!COMPONENTS[nd.type]) return;
+      const node = instantiateNode(nd.type, nd.x||0, nd.y||0, nd);
+      if(nd.running && node.def.isClock){
+        node.running = true;
+        node.timer = setInterval(()=>{ node.state = node.state?0:1; evaluate(); }, 500/simSpeed);
+        const btn = node.el.querySelector('.autorun-btn');
+        if(btn){ btn.textContent='⏸'; btn.classList.add('active'); }
+      }
+    });
+    (data.connections||[]).forEach(c=>connections.push({...c}));
+    view = data.view ? { ...data.view } : { scale:1, tx:0, ty:0 };
+    applyView();
     selectedNodeId=null; selectedConnId=null;
     evaluate();
+  }
+  function snapshot(){ return JSON.stringify(currentStateObj()); }
+  function pushUndo(){ undoStack.push(snapshot()); if(undoStack.length>40) undoStack.shift(); }
+  function restoreSnapshot(json){ loadStateObj(JSON.parse(json)); }
+
+  // ================= Board tabs (multiple open circuits) =================
+  let tabs = [];
+  let activeTabId = null;
+  let tabCounter = 1;
+  function saveActiveTabState(){
+    if(!activeTabId) return;
+    const t = tabs.find(t => t.id === activeTabId);
+    if(t) t.data = currentStateObj();
+  }
+  function switchTab(tabId){
+    if(tabId === activeTabId) return;
+    saveActiveTabState();
+    const t = tabs.find(t => t.id === tabId);
+    if(!t) return;
+    activeTabId = tabId;
+    loadStateObj(t.data);
+    renderTabBar();
+  }
+  function openTab(name, dataObj){
+    saveActiveTabState();
+    const id = 'tab' + (tabCounter++);
+    tabs.push({ id, name, data:null });
+    activeTabId = id;
+    loadStateObj(dataObj || { nextId:1, letterIdx:0, outputIdx:0, nodes:[], connections:[], view:{scale:1,tx:0,ty:0} });
+    saveActiveTabState();
+    renderTabBar();
+  }
+  function closeTab(tabId){
+    const idx = tabs.findIndex(t => t.id === tabId);
+    if(idx === -1) return;
+    const wasActive = (activeTabId === tabId);
+    tabs.splice(idx, 1);
+    if(wasActive){
+      activeTabId = null;
+      if(tabs.length === 0){ openTab('Untitled ' + tabCounter, null); return; }
+      switchTab(tabs[Math.max(0, idx-1)].id);
+    } else {
+      renderTabBar();
+    }
+  }
+  function renderTabBar(){
+    const bar = document.getElementById('boardTabbar');
+    if(!bar) return;
+    bar.innerHTML = '';
+    tabs.forEach(t => {
+      const chip = document.createElement('div');
+      chip.className = 'tab-chip' + (t.id === activeTabId ? ' active' : '');
+      chip.innerHTML = `<span class="tab-name">${t.name}</span><span class="tab-close">×</span>`;
+      chip.querySelector('.tab-name').addEventListener('click', () => switchTab(t.id));
+      chip.querySelector('.tab-close').addEventListener('click', e => { e.stopPropagation(); closeTab(t.id); });
+      bar.appendChild(chip);
+    });
+    const addBtn = document.createElement('div');
+    addBtn.className = 'tab-add-btn';
+    addBtn.textContent = '+';
+    addBtn.title = 'New blank board';
+    addBtn.addEventListener('click', () => openTab('Untitled ' + tabCounter, null));
+    bar.appendChild(addBtn);
   }
 
   // ================= Project save/open =================
@@ -948,10 +1064,10 @@
     URL.revokeObjectURL(url);
   }
   let saveCount = parseInt(localStorage.getItem('lb_save_count')||'0',10);
-  function saveToRecent(json){
+  function saveToRecent(json, name){
     saveCount++; localStorage.setItem('lb_save_count', saveCount);
     let list = JSON.parse(localStorage.getItem('lb_recent')||'[]');
-    list.unshift({ name:'Project '+saveCount, json, ts:Date.now() });
+    list.unshift({ name: name || ('Project '+saveCount), json, ts:Date.now() });
     list = list.slice(0,6);
     localStorage.setItem('lb_recent', JSON.stringify(list));
     renderRecent();
@@ -964,31 +1080,28 @@
     list.forEach(item=>{
       const chip=document.createElement('span');
       chip.className='recent-chip'; chip.textContent=item.name;
-      chip.addEventListener('click', ()=>loadProjectJSON(item.json));
+      chip.addEventListener('click', ()=>{ loadProjectJSON(item.json, item.name); showPage('simulator'); });
       bar.appendChild(chip);
     });
   }
-  function loadProjectJSON(jsonStr){
-    let data;
-    try{ data = JSON.parse(jsonStr); } catch(err){ alert('Invalid project file — could not parse JSON.'); return; }
-    if(!data.nodes || !data.connections){ alert('Invalid project format — expected {"nodes":[...], "connections":[...]}.'); return; }
-    pushUndo();
-    nodes.forEach(n=>{ if(n.timer) clearInterval(n.timer); n.el.remove(); });
-    nodes.clear(); connections=[];
+  function deriveCounters(nodesArr){
     let maxNumId=0, maxLetter=-1, maxY=0;
-    data.nodes.forEach(nd=>{
-      if(!COMPONENTS[nd.type]) return;
-      instantiateNode(nd.type, nd.x||0, nd.y||0, nd);
+    (nodesArr||[]).forEach(nd=>{
       const m = /^n(\d+)$/.exec(nd.id||''); if(m) maxNumId = Math.max(maxNumId, parseInt(m[1],10));
       if(nd.label){
         if(/^[A-Z]$/.test(nd.label)) maxLetter = Math.max(maxLetter, LETTERS.indexOf(nd.label));
         const ym = /^Y(\d+)$/.exec(nd.label); if(ym) maxY = Math.max(maxY, parseInt(ym[1],10));
       }
     });
-    nextId = maxNumId+1; letterIdx = maxLetter+1; outputIdx = maxY;
-    data.connections.forEach(c=>connections.push({ id:connIdCounter++, from:c.from, fromSlot:c.fromSlot, to:c.to, slot:c.slot }));
-    selectedNodeId=null; selectedConnId=null;
-    evaluate();
+    return { nextId:maxNumId+1, letterIdx:maxLetter+1, outputIdx:maxY };
+  }
+  function loadProjectJSON(jsonStr, tabName){
+    let data;
+    try{ data = JSON.parse(jsonStr); } catch(err){ alert('Invalid project file — could not parse JSON.'); return; }
+    if(!data.nodes || !data.connections){ alert('Invalid project format — expected {"nodes":[...], "connections":[...]}.'); return; }
+    if(data.nextId === undefined) Object.assign(data, deriveCounters(data.nodes));
+    data.connections = data.connections.map(c => ({ ...c, id: connIdCounter++ }));
+    openTab(tabName || 'Opened Project', data);
   }
 
   // ================= Pointer / view interaction =================
@@ -1179,7 +1292,7 @@
     tab.addEventListener('click', ()=>{
       document.querySelectorAll('.rp-tab').forEach(t=>t.classList.remove('active'));
       tab.classList.add('active');
-      document.getElementById('exprList').style.display = tab.dataset.tab==='expr' ? 'block':'none';
+      document.getElementById('exprTab').style.display = tab.dataset.tab==='expr' ? 'block':'none';
       document.getElementById('valList').style.display = tab.dataset.tab==='val' ? 'block':'none';
       document.getElementById('statsList').style.display = tab.dataset.tab==='stats' ? 'block':'none';
     });
@@ -1194,7 +1307,6 @@
     renderWires(); renderExpressions(); renderStats(); renderMiniMap();
   });
   document.getElementById('validateBtn').addEventListener('click', validateCircuit);
-  document.getElementById('truthBtn').addEventListener('click', generateTruthTable);
   document.getElementById('resetViewBtn').addEventListener('click', ()=>{ view={scale:1,tx:0,ty:0}; applyView(); });
   document.getElementById('arrangeBtn').addEventListener('click', autoArrange);
   document.getElementById('snapBtn').addEventListener('click', function(){
@@ -1224,30 +1336,64 @@
   document.addEventListener('click', ()=>fileDropdown.classList.remove('open'));
 
   document.getElementById('fdNew').addEventListener('click', ()=>{
-    if(nodes.size===0 || confirm('Start a new project? Unsaved changes will be lost (use File → Save first if needed).')){
-      pushUndo();
-      nodes.forEach(n=>{ if(n.timer) clearInterval(n.timer); n.el.remove(); });
-      nodes.clear(); connections=[]; selectedNodeId=null; selectedConnId=null;
-      renderWires(); renderExpressions(); renderStats(); renderMiniMap();
-    }
+    openTab('Untitled ' + tabCounter, null);
   });
   document.getElementById('fdSave').addEventListener('click', ()=>{
-    const json = projectJSON();
-    downloadText('logic_circuit.json', json, 'application/json');
-    saveToRecent(json);
+    openSaveAsModal('Project ' + (saveCount+1), 'Save', name => {
+      const json = projectJSON();
+      saveToRecent(json, name);
+      const t = tabs.find(t => t.id === activeTabId);
+      if(t){ t.name = name; renderTabBar(); }
+    });
   });
-  document.getElementById('fdOpen').addEventListener('click', ()=>document.getElementById('fileOpenInput').click());
+  document.getElementById('fdSaveDevice').addEventListener('click', ()=>{
+    openSaveAsModal('logic_circuit', 'Download', name => {
+      const json = projectJSON();
+      const filename = name.toLowerCase().endsWith('.json') ? name : name + '.json';
+      downloadText(filename, json, 'application/json');
+    });
+  });
+  document.getElementById('fdOpen').addEventListener('click', ()=>{
+    const list = JSON.parse(localStorage.getItem('lb_recent')||'[]');
+    const savedListHTML = list.length
+      ? list.map((item,idx)=>`<div class="fd-item" data-openidx="${idx}" style="padding:8px 4px;">${item.name}</div>`).join('')
+      : '<div class="edu-note">No saved projects on this site yet.</div>';
+    openModal('Open Project', `
+      <h4>From this site</h4>
+      <div>${savedListHTML}</div>
+      <h4>From your device</h4>
+      <button class="chip-btn" id="openFromDeviceBtn">Choose File…</button>
+    `);
+    document.querySelectorAll('[data-openidx]').forEach(el=>{
+      el.addEventListener('click', ()=>{
+        const item = list[parseInt(el.dataset.openidx,10)];
+        closeModal();
+        loadProjectJSON(item.json, item.name);
+      });
+    });
+    const deviceBtn = document.getElementById('openFromDeviceBtn');
+    if(deviceBtn) deviceBtn.addEventListener('click', ()=>{ closeModal(); document.getElementById('fileOpenInput').click(); });
+  });
   document.getElementById('fileOpenInput').addEventListener('change', e=>{
     const file = e.target.files[0]; if(!file) return;
     const reader = new FileReader();
-    reader.onload = () => loadProjectJSON(reader.result);
+    reader.onload = () => loadProjectJSON(reader.result, file.name.replace(/\.json$/i, ''));
     reader.readAsText(file);
     e.target.value = '';
   });
   document.getElementById('fdExport').addEventListener('click', ()=>{
     if(typeof html2canvas === 'undefined'){ alert('PNG export library failed to load — check your connection.'); return; }
+    if(nodes.size === 0){ alert('Nothing on the board to export yet.'); return; }
+    let minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity;
+    nodes.forEach(n=>{
+      minX = Math.min(minX, n.x); minY = Math.min(minY, n.y);
+      maxX = Math.max(maxX, n.x+n.w); maxY = Math.max(maxY, n.y+n.h);
+    });
+    const pad = 50;
+    minX = Math.max(0, minX-pad); minY = Math.max(0, minY-pad);
+    maxX = Math.min(2600, maxX+pad); maxY = Math.min(1500, maxY+pad);
     const bg = getComputedStyle(document.documentElement).getPropertyValue('--board').trim() || '#0d2318';
-    html2canvas(board, { backgroundColor: bg }).then(canvas=>{
+    html2canvas(board, { backgroundColor: bg, x:minX, y:minY, width:maxX-minX, height:maxY-minY }).then(canvas=>{
       canvas.toBlob(blob=>{
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a'); a.href=url; a.download='logic_circuit.png'; document.body.appendChild(a); a.click(); a.remove();
@@ -1286,12 +1432,9 @@
   })();
 
   // ================= Examples =================
-  function clearBoardSilent(){
-    nodes.forEach(n=>{ if(n.timer) clearInterval(n.timer); n.el.remove(); });
-    nodes.clear(); connections=[]; selectedNodeId=null; selectedConnId=null;
-  }
+  const EXAMPLE_NAMES = { halfadder:'Half Adder', srlatch:'SR Latch', counter:'4-bit Counter', mux:'2:1 Multiplexer' };
   function loadExample(name){
-    pushUndo(); clearBoardSilent();
+    openTab(EXAMPLE_NAMES[name] || 'Example', null);
     if(name==='halfadder'){
       const a=instantiateNode('INPUT',80,100), b=instantiateNode('INPUT',80,240);
       const ha=instantiateNode('HALF_ADDER',330,140);
@@ -1329,6 +1472,7 @@
       connections.push({id:connIdCounter++,from:mux.id,fromSlot:0,to:y.id,slot:0});
     }
     evaluate();
+    saveActiveTabState();
     showPage('simulator');
   }
   document.querySelectorAll('[data-example]').forEach(btn=>{
@@ -1366,7 +1510,7 @@
       const loadBtn = document.createElement('button');
       loadBtn.textContent = 'Load';
       loadBtn.style.marginRight = '8px';
-      loadBtn.addEventListener('click', () => { loadProjectJSON(item.json); showPage('simulator'); });
+      loadBtn.addEventListener('click', () => { loadProjectJSON(item.json, item.name); showPage('simulator'); });
       const delBtn = document.createElement('button');
       delBtn.textContent = 'Delete';
       delBtn.style.borderColor = 'var(--danger)';
@@ -1382,7 +1526,8 @@
     });
   }
 
-  // ================= Starter circuit =================
+  // ================= Starter circuit (first tab) =================
+  openTab('Starter Circuit', null);
   const a = instantiateNode('INPUT', 80, 100);
   const b = instantiateNode('INPUT', 80, 220);
   const g = instantiateNode('AND', 300, 150);
@@ -1391,6 +1536,7 @@
   connections.push({ id:connIdCounter++, from:b.id, fromSlot:0, to:g.id, slot:1 });
   connections.push({ id:connIdCounter++, from:g.id, fromSlot:0, to:o.id, slot:0 });
   evaluate();
+  saveActiveTabState();
   renderRecent();
   renderSavedProjectsPage();
 })();
