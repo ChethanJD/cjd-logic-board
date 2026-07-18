@@ -302,7 +302,7 @@
     <a href="#home">Home</a>
     <a href="#features">Features</a>
     <a href="#simulator">Live Simulator</a>
-    <a href="verilog/index.html" target="_blank" rel="noopener">Verilog Sim ↗</a>
+    <a href="#verilog">Verilog</a>
     <a href="#learn">Learn</a>
     <a href="#examples">Examples</a>
     <a href="#download">Saved</a>
@@ -477,6 +477,36 @@
         <div class="rp-body" id="statsList" style="display:none;"></div>
       </aside>
     </div>
+  </div>
+</section>
+
+<section id="verilog" class="site-section site-page" style="max-width:1300px;">
+  <h2>Verilog → Circuit</h2>
+  <p class="lede">Write a small structural/RTL Verilog module and a testbench, then build it into a real, live circuit on the board. Supports gate primitives (<code>and</code>/<code>or</code>/<code>not</code>/<code>nand</code>/<code>nor</code>/<code>xor</code>/<code>xnor</code>), <code>assign</code> expressions, and <code>always @(posedge clk)</code> blocks with non-blocking assignments (compiled to D flip-flops). Every signal is treated as a single bit — no buses, no <code>case</code>/<code>if</code>/loops.</p>
+
+  <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px;">
+    <button class="chip-btn" id="vlogExampleGate">Example: Gate</button>
+    <button class="chip-btn" id="vlogExampleAdder">Example: Half Adder</button>
+    <button class="chip-btn" id="vlogExampleDff">Example: D Flip-Flop</button>
+    <button class="chip-btn" id="vlogBuildBtn" style="border-color:var(--signal-on); color:var(--signal-on);">▶ Build &amp; Simulate</button>
+  </div>
+
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+    <div>
+      <div class="rp-subhead" style="border-top:none; padding-top:0; margin-top:0;">Design Module</div>
+      <textarea id="vlogDesign" spellcheck="false" style="width:100%; height:260px; background:var(--card-bg); color:var(--silkscreen); border:1px solid var(--panel-border); border-radius:8px; padding:12px; font-family:'IBM Plex Mono',monospace; font-size:12.5px; line-height:1.6; resize:vertical;"></textarea>
+    </div>
+    <div>
+      <div class="rp-subhead" style="border-top:none; padding-top:0; margin-top:0;">Testbench</div>
+      <textarea id="vlogTestbench" spellcheck="false" style="width:100%; height:260px; background:var(--card-bg); color:var(--silkscreen); border:1px solid var(--panel-border); border-radius:8px; padding:12px; font-family:'IBM Plex Mono',monospace; font-size:12.5px; line-height:1.6; resize:vertical;"></textarea>
+    </div>
+  </div>
+
+  <div id="vlogLog" style="margin-top:16px; font-family:'IBM Plex Mono',monospace; font-size:12px; line-height:1.7;"></div>
+
+  <div id="vlogResultsWrap" style="margin-top:20px; display:none;">
+    <div class="rp-subhead" style="border-top:none; padding-top:0;">Testbench Results</div>
+    <div style="overflow-x:auto;"><table class="tt-table" id="vlogResultsTable"></table></div>
   </div>
 </section>
 
@@ -1743,6 +1773,386 @@
       grid.appendChild(card);
     });
   }
+
+  // ================= Verilog -> Circuit engine =================
+  class VerilogBuildError extends Error {}
+
+  function vlogTokenize(src){
+    // strip comments
+    src = src.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+    const re = /(<=|~\^|\^~|==|!=|&&|\|\||[A-Za-z_][A-Za-z0-9_$]*|\d+'[bBdDhH][0-9a-fA-F_xXzZ]+|\d+|[(){}\[\];,.@#~&|^=])/g;
+    return src.match(re) || [];
+  }
+
+  function vlogParseModule(src){
+    const toks = vlogTokenize(src);
+    let i = 0;
+    function peek(){ return toks[i]; }
+    function next(){ return toks[i++]; }
+    function expect(t){ if(toks[i]!==t) throw new VerilogBuildError(`Expected "${t}" but found "${toks[i]}" near token ${i}.`); return toks[i++]; }
+
+    if(peek() !== 'module') throw new VerilogBuildError('Expected a "module" declaration.');
+    next();
+    const name = next();
+    const ports = [];
+    let currentDir = null;
+    if(peek() === '('){
+      next();
+      while(peek() !== ')'){
+        if(peek()==='input' || peek()==='output' || peek()==='wire' || peek()==='reg'){ currentDir = next(); continue; }
+        if(peek()===','){ next(); continue; }
+        const nm = next();
+        if(currentDir==='input' || currentDir==='output') ports.push({ name:nm, dir:currentDir });
+        else ports.push({ name:nm, dir:'input' }); // bare port name defaults to input-ish; refined by body decls
+      }
+      expect(')');
+    }
+    expect(';');
+
+    const statements = [];
+    const portDirByName = {};
+    ports.forEach(p=>{ portDirByName[p.name] = p.dir; });
+
+    while(peek() && peek() !== 'endmodule'){
+      const kw = peek();
+      if(kw==='input' || kw==='output' || kw==='wire' || kw==='reg'){
+        next();
+        const names = [];
+        while(peek() !== ';'){
+          if(peek()===',') { next(); continue; }
+          names.push(next());
+        }
+        expect(';');
+        if(kw==='input' || kw==='output'){
+          names.forEach(nm=>{
+            portDirByName[nm] = kw;
+            if(!ports.find(p=>p.name===nm)) ports.push({name:nm, dir:kw});
+          });
+        } else {
+          statements.push({ type:'wireDecl', names });
+        }
+      } else if(kw==='assign'){
+        next();
+        const lhs = next();
+        expect('=');
+        const exprToks = [];
+        while(peek() !== ';'){ exprToks.push(next()); }
+        expect(';');
+        statements.push({ type:'assign', lhs, exprToks });
+      } else if(['and','or','not','nand','nor','xor','xnor','buf'].includes(kw)){
+        const gate = next();
+        let instName = null;
+        if(peek() !== '(') instName = next();
+        expect('(');
+        const args = [];
+        while(peek() !== ')'){
+          if(peek()===',') { next(); continue; }
+          args.push(next());
+        }
+        expect(')');
+        expect(';');
+        statements.push({ type:'gateInst', gate, instName, args });
+      } else if(kw==='always'){
+        next();
+        expect('@'); expect('(');
+        let sens = '';
+        while(peek() !== ')'){ sens += next() + ' '; }
+        expect(')');
+        const body = [];
+        let hasBegin = false;
+        if(peek()==='begin'){ next(); hasBegin = true; }
+        while(true){
+          if(hasBegin && peek()==='end') break;
+          if(!peek()) break;
+          const lhs = next();
+          const opTok = next(); // '<=' or '='
+          const exprToks = [];
+          while(peek() !== ';'){ exprToks.push(next()); }
+          expect(';');
+          body.push({ type: opTok==='<=' ? 'nbassign' : 'bassign', lhs, exprToks });
+          if(!hasBegin) break;
+        }
+        if(hasBegin) expect('end');
+        statements.push({ type:'always', sensitivity:sens.trim(), body });
+      } else if(kw && /^[A-Za-z_]/.test(kw) && toks[i+1] && /^[A-Za-z_]/.test(toks[i+1])){
+        // looks like a sub-module instantiation "typename instname(...)" — skip (unsupported), consume to ';'
+        while(peek() && peek() !== ';') next();
+        if(peek()===';') next();
+      } else {
+        // unknown token — skip defensively rather than hard-crash on stray syntax
+        next();
+      }
+    }
+    return { name, ports, portDirByName, statements };
+  }
+
+  // Expression parser: OR > XOR/XNOR > AND > NOT, with parens
+  function vlogParseExpr(toks){
+    let i = 0;
+    function peek(){ return toks[i]; }
+    function next(){ return toks[i++]; }
+    function parseOr(){
+      let node = parseXor();
+      while(peek()==='|'){ next(); node = { type:'or', left:node, right:parseXor() }; }
+      return node;
+    }
+    function parseXor(){
+      let node = parseAnd();
+      while(peek()==='^' || peek()==='~^' || peek()==='^~'){
+        const op = next();
+        node = { type: (op==='^') ? 'xor' : 'xnor', left:node, right:parseAnd() };
+      }
+      return node;
+    }
+    function parseAnd(){
+      let node = parseUnary();
+      while(peek()==='&'){ next(); node = { type:'and', left:node, right:parseUnary() }; }
+      return node;
+    }
+    function parseUnary(){
+      if(peek()==='~'){ next(); return { type:'not', arg: parseUnary() }; }
+      return parsePrimary();
+    }
+    function parsePrimary(){
+      if(peek()==='('){ next(); const n = parseOr(); if(peek()!==')') throw new VerilogBuildError('Mismatched parentheses in expression.'); next(); return n; }
+      const tok = next();
+      if(tok === undefined) throw new VerilogBuildError('Unexpected end of expression.');
+      if(/^\d+$/.test(tok)) return { type:'const', value: tok==='0' ? 0 : 1 };
+      const bitLit = /^\d+'[bBdDhH]([01xXzZ_]+)$/.exec(tok);
+      if(bitLit){ const v = bitLit[1].replace(/_/g,''); return { type:'const', value: /1$/.test(v) || /[1-9a-fA-F]$/.test(v) ? 1 : 0 }; }
+      return { type:'id', name: tok };
+    }
+    const ast = parseOr();
+    if(i !== toks.length) throw new VerilogBuildError('Could not fully parse expression: ' + toks.join(' '));
+    return ast;
+  }
+
+  function vlogBuildCircuit(designSrc){
+    const design = vlogParseModule(designSrc);
+    openTab(design.name || 'Verilog Circuit', null);
+    const symbolTable = {};
+    const outputPorts = {};
+    const constNodes = {};
+    let placeN = 0;
+    function place(){ placeN++; return { x: 60 + (placeN % 8) * 160, y: 50 + Math.floor(placeN/8) * 110 }; }
+
+    design.ports.forEach(p=>{
+      if(p.dir==='input'){
+        const n = instantiateNode('INPUT', place().x, place().y);
+        n.label = p.name; symbolTable[p.name] = { nodeId:n.id, slot:0 };
+      } else if(p.dir==='output'){
+        const n = instantiateNode('OUTPUT', place().x, place().y);
+        n.label = p.name; outputPorts[p.name] = n.id;
+      }
+    });
+
+    function getConst(bit){
+      if(constNodes[bit]) return constNodes[bit];
+      const n = instantiateNode('INPUT', place().x, place().y);
+      n.state = bit; n.label = bit ? "1'b1" : "1'b0";
+      constNodes[bit] = { nodeId:n.id, slot:0 };
+      return constNodes[bit];
+    }
+    function resolve(name, allowImplicit){
+      if(symbolTable[name]) return symbolTable[name];
+      if(allowImplicit){
+        const n = instantiateNode('INPUT', place().x, place().y);
+        n.label = name; symbolTable[name] = { nodeId:n.id, slot:0 };
+        return symbolTable[name];
+      }
+      throw new VerilogBuildError(`Signal "${name}" is read before it is driven (declare it as an input, or drive it with a gate/assign above this point).`);
+    }
+    function synth(ast){
+      if(ast.type==='id') return resolve(ast.name, false);
+      if(ast.type==='const') return getConst(ast.value);
+      if(ast.type==='not'){
+        const a = synth(ast.arg);
+        const n = instantiateNode('NOT', place().x, place().y);
+        connections.push({ id:connIdCounter++, from:a.nodeId, fromSlot:a.slot, to:n.id, slot:0 });
+        return { nodeId:n.id, slot:0 };
+      }
+      const typeMap = { and:'AND', or:'OR', xor:'XOR', xnor:'XNOR' };
+      const a = synth(ast.left), b = synth(ast.right);
+      const n = instantiateNode(typeMap[ast.type], place().x, place().y);
+      connections.push({ id:connIdCounter++, from:a.nodeId, fromSlot:a.slot, to:n.id, slot:0 });
+      connections.push({ id:connIdCounter++, from:b.nodeId, fromSlot:b.slot, to:n.id, slot:1 });
+      return { nodeId:n.id, slot:0 };
+    }
+
+    const gatePrimMap = { and:'AND', or:'OR', not:'NOT', nand:'NAND', nor:'NOR', xor:'XOR', xnor:'XNOR', buf:'NOT' };
+
+    design.statements.forEach(st=>{
+      if(st.type==='wireDecl'){ /* declared lazily on first drive/read */ }
+      else if(st.type==='gateInst'){
+        const compType = gatePrimMap[st.gate];
+        if(!compType) throw new VerilogBuildError(`Unsupported gate primitive "${st.gate}".`);
+        const outName = st.args[0];
+        const inNames = st.args.slice(1);
+        const n = instantiateNode(compType, place().x, place().y);
+        inNames.forEach((inName, idx)=>{
+          const drv = resolve(inName, false);
+          connections.push({ id:connIdCounter++, from:drv.nodeId, fromSlot:drv.slot, to:n.id, slot: st.gate==='buf' ? 0 : idx });
+        });
+        symbolTable[outName] = { nodeId:n.id, slot:0 };
+      }
+      else if(st.type==='assign'){
+        const ast = vlogParseExpr(st.exprToks);
+        symbolTable[st.lhs] = synth(ast);
+      }
+      else if(st.type==='always'){
+        const m = /posedge\s+([A-Za-z_][A-Za-z0-9_]*)/.exec(st.sensitivity);
+        if(!m) throw new VerilogBuildError(`Only "always @(posedge <clk>)" is supported — found "always @(${st.sensitivity})".`);
+        const clkDrv = resolve(m[1], true);
+        st.body.forEach(assign=>{
+          if(assign.type !== 'nbassign') throw new VerilogBuildError(`Only non-blocking assignments ("<=") are supported inside always blocks — "${assign.lhs} = ..." uses blocking assignment ("=").`);
+          const ast = vlogParseExpr(assign.exprToks);
+          const dDrv = synth(ast);
+          const ff = instantiateNode('D_FLIPFLOP', place().x, place().y);
+          connections.push({ id:connIdCounter++, from:dDrv.nodeId, fromSlot:dDrv.slot, to:ff.id, slot:0 });
+          connections.push({ id:connIdCounter++, from:clkDrv.nodeId, fromSlot:clkDrv.slot, to:ff.id, slot:1 });
+          symbolTable[assign.lhs] = { nodeId:ff.id, slot:0 };
+        });
+      }
+    });
+
+    Object.keys(outputPorts).forEach(name=>{
+      if(symbolTable[name]){
+        const drv = symbolTable[name];
+        connections.push({ id:connIdCounter++, from:drv.nodeId, fromSlot:drv.slot, to:outputPorts[name], slot:0 });
+      }
+    });
+
+    evaluate();
+    autoArrange();
+    saveActiveTabState();
+    return { design, symbolTable, outputPorts };
+  }
+
+  function vlogParseTestbench(src){
+    const toks = vlogTokenize(src.replace(/\/\/.*$/gm,'').replace(/\/\*[\s\S]*?\*\//g,''));
+    let i = 0;
+    function peek(){ return toks[i]; }
+    function next(){ return toks[i++]; }
+    const regs = [], wires = [];
+    const stmts = [];
+    while(i < toks.length){
+      const t = peek();
+      if(t==='reg' || t==='wire'){
+        next();
+        const list = t==='reg' ? regs : wires;
+        while(peek() !== ';'){ if(peek()!==',') list.push(next()); else next(); }
+        next();
+      } else if(t==='initial'){
+        next();
+        let hasBegin = false;
+        if(peek()==='begin'){ next(); hasBegin = true; }
+        while(peek() && peek() !== 'end'){
+          if(peek()==='#'){
+            next();
+            const n = next();
+            stmts.push({ type:'delay', amount: parseInt(n,10)||0 });
+          } else if(/^[A-Za-z_]/.test(peek())){
+            const lhs = next();
+            if(peek()==='='){ next(); const val = next(); stmts.push({ type:'set', name:lhs, value: /^1/.test(val) ? 1 : 0 }); if(peek()===';') next(); }
+            else { while(peek() && peek()!==';') next(); if(peek()===';') next(); }
+          } else { next(); }
+          if(!hasBegin) break;
+        }
+        if(hasBegin && peek()==='end') next();
+      } else { next(); }
+    }
+    return { regs, wires, stmts };
+  }
+
+  function vlogRunTestbench(tbSrc, symbolTable, outputPorts){
+    const tb = vlogParseTestbench(tbSrc);
+    const rows = [];
+    let time = 0;
+    let pending = false;
+    function sample(){
+      const vals = {};
+      tb.regs.forEach(r=>{ const d = symbolTable[r]; vals[r] = d ? (nodes.get(d.nodeId).state !== undefined && nodes.get(d.nodeId).def.isInput ? nodes.get(d.nodeId).state : 0) : 0; });
+      tb.wires.forEach(w=>{
+        if(outputPorts[w]){ const led = nodes.get(outputPorts[w]); vals[w] = led ? (led.inVals[0]||0) : 0; }
+        else if(symbolTable[w]){ const d = symbolTable[w]; const n = nodes.get(d.nodeId); vals[w] = n.outVals ? (n.outVals[d.slot]||0) : 0; }
+      });
+      rows.push({ time, vals });
+    }
+    tb.stmts.forEach(st=>{
+      if(st.type==='set'){
+        const drv = symbolTable[st.name];
+        if(drv){ const n = nodes.get(drv.nodeId); if(n && n.def.isInput){ n.state = st.value; pending = true; } }
+      } else if(st.type==='delay'){
+        if(pending){ evaluate(); pending = false; }
+        sample();
+        time += st.amount;
+      }
+    });
+    if(pending){ evaluate(); sample(); }
+    return { tb, rows };
+  }
+
+  function vlogLog(html, isError){
+    const el = document.getElementById('vlogLog');
+    el.innerHTML = html;
+    el.style.color = isError ? 'var(--danger)' : 'var(--signal-on)';
+  }
+
+  document.getElementById('vlogBuildBtn').addEventListener('click', ()=>{
+    const designSrc = document.getElementById('vlogDesign').value;
+    const tbSrc = document.getElementById('vlogTestbench').value;
+    document.getElementById('vlogResultsWrap').style.display = 'none';
+    try{
+      const { symbolTable, outputPorts } = vlogBuildCircuit(designSrc);
+      let msg = '✓ Circuit built successfully — switched to a new board tab. Scroll up to Live Simulator to see it.';
+      if(tbSrc.trim()){
+        const { tb, rows } = vlogRunTestbench(tbSrc, symbolTable, outputPorts);
+        if(rows.length){
+          const cols = [...tb.regs, ...tb.wires];
+          const table = document.getElementById('vlogResultsTable');
+          table.innerHTML = `<thead><tr><th>Time</th>${cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody>${
+            rows.map(r=>`<tr><td>${r.time}</td>${cols.map(c=>`<td>${r.vals[c]}</td>`).join('')}</tr>`).join('')
+          }</tbody>`;
+          document.getElementById('vlogResultsWrap').style.display = 'block';
+          msg += ` Testbench ran ${rows.length} sample point(s).`;
+        }
+      }
+      vlogLog(msg, false);
+    } catch(err){
+      vlogLog('✗ ' + (err.message || String(err)), true);
+    }
+  });
+
+  const VLOG_EXAMPLES = {
+    gate: {
+      design: `module gatedemo(input a, input b, output y);\n  and g1(y, a, b);\nendmodule`,
+      tb: `module tb;\n  reg a, b;\n  wire y;\n  initial begin\n    a=0; b=0; #10;\n    a=0; b=1; #10;\n    a=1; b=0; #10;\n    a=1; b=1; #10;\n  end\nendmodule`
+    },
+    adder: {
+      design: `module halfadder(input a, input b, output s, output c);\n  assign s = a ^ b;\n  assign c = a & b;\nendmodule`,
+      tb: `module tb;\n  reg a, b;\n  wire s, c;\n  initial begin\n    a=0; b=0; #10;\n    a=0; b=1; #10;\n    a=1; b=0; #10;\n    a=1; b=1; #10;\n  end\nendmodule`
+    },
+    dff: {
+      design: `module dffdemo(input d, input clk, output q);\n  always @(posedge clk) begin\n    q <= d;\n  end\nendmodule`,
+      tb: `module tb;\n  reg d, clk;\n  wire q;\n  initial begin\n    d=1; clk=0; #5; clk=1; #5;\n    d=0; clk=0; #5; clk=1; #5;\n    d=1; clk=0; #5; clk=1; #5;\n  end\nendmodule`
+    }
+  };
+  function loadVlogExample(key){
+    document.getElementById('vlogDesign').value = VLOG_EXAMPLES[key].design;
+    document.getElementById('vlogTestbench').value = VLOG_EXAMPLES[key].tb;
+    document.getElementById('vlogResultsWrap').style.display = 'none';
+    vlogLog('', false);
+  }
+  document.getElementById('vlogExampleGate').addEventListener('click', ()=>loadVlogExample('gate'));
+  document.getElementById('vlogExampleAdder').addEventListener('click', ()=>loadVlogExample('adder'));
+  document.getElementById('vlogExampleDff').addEventListener('click', ()=>loadVlogExample('dff'));
+  loadVlogExample('gate');
+
+  document.querySelectorAll('#vlogDesign, #vlogTestbench').forEach(ta=>{
+    ta.addEventListener('keydown', e=>{
+      if(e.key==='Tab'){ e.preventDefault(); const s=ta.selectionStart, en=ta.selectionEnd; ta.value = ta.value.slice(0,s)+'  '+ta.value.slice(en); ta.selectionStart=ta.selectionEnd=s+2; }
+    });
+  });
 
   // ================= Starter circuit (first tab) =================
   openTab('Starter Circuit', null);
