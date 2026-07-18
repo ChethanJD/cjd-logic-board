@@ -4,6 +4,23 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CJD LOGIC/BOARD — Interactive Logic Circuit Simulator</title>
+<meta name="description" content="CJD LOGIC/BOARD is a free, browser-based digital logic circuit simulator. Wire up gates, adders, multiplexers, and flip-flops, watch signals flow in real time, and read out live Boolean equations and truth tables — no install, no account.">
+<link rel="canonical" href="https://cjd-logic-board.netlify.app/">
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="CJD LOGIC/BOARD">
+<meta property="og:title" content="CJD LOGIC/BOARD — Interactive Logic Circuit Simulator">
+<meta property="og:description" content="A free, browser-based digital logic workbench. Wire up gates, adders, multiplexers, and flip-flops, and watch current and Boolean equations update live as you build.">
+<meta property="og:url" content="https://cjd-logic-board.netlify.app/">
+<meta property="og:image" content="https://cjd-logic-board.netlify.app/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="CJD LOGIC/BOARD — Interactive Logic Circuit Simulator">
+<meta name="twitter:description" content="A free, browser-based digital logic workbench with live wiring, Boolean equations, and truth tables.">
+<meta name="twitter:image" content="https://cjd-logic-board.netlify.app/og-image.png">
+
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2032%2032%27%3E%3Crect%20width%3D%2732%27%20height%3D%2732%27%20rx%3D%276%27%20fill%3D%27%230d2318%27%2F%3E%3Crect%20x%3D%279%27%20y%3D%272%27%20width%3D%272%27%20height%3D%276%27%20fill%3D%27%23c98a4b%27%2F%3E%3Crect%20x%3D%2715%27%20y%3D%272%27%20width%3D%272%27%20height%3D%276%27%20fill%3D%27%23c98a4b%27%2F%3E%3Crect%20x%3D%2721%27%20y%3D%272%27%20width%3D%272%27%20height%3D%276%27%20fill%3D%27%23c98a4b%27%2F%3E%3Crect%20x%3D%279%27%20y%3D%2724%27%20width%3D%272%27%20height%3D%276%27%20fill%3D%27%23c98a4b%27%2F%3E%3Crect%20x%3D%2715%27%20y%3D%2724%27%20width%3D%272%27%20height%3D%276%27%20fill%3D%27%23c98a4b%27%2F%3E%3Crect%20x%3D%2721%27%20y%3D%2724%27%20width%3D%272%27%20height%3D%276%27%20fill%3D%27%23c98a4b%27%2F%3E%3Crect%20x%3D%276%27%20y%3D%277%27%20width%3D%2720%27%20height%3D%2718%27%20rx%3D%272.5%27%20fill%3D%27%23123a26%27%20stroke%3D%27%23c98a4b%27%20stroke-width%3D%271.6%27%2F%3E%3Ccircle%20cx%3D%279.5%27%20cy%3D%2710.5%27%20r%3D%271.2%27%20fill%3D%27%236bff9e%27%2F%3E%3Ctext%20x%3D%2716%27%20y%3D%2719.6%27%20text-anchor%3D%27middle%27%20font-family%3D%27Arial%2C%20sans-serif%27%20font-weight%3D%27700%27%20font-size%3D%278%27%20fill%3D%27%236bff9e%27%20letter-spacing%3D%27-0.4%27%3ECJD%3C%2Ftext%3E%3C%2Fsvg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
@@ -254,6 +271,11 @@
   table.tt-table th{ color:var(--amber); background:rgba(255,180,84,0.07); }
   table.tt-table td{ color:var(--silkscreen); }
 
+  .gate-body:focus-visible, .pin:focus-visible, .del-btn:focus-visible, .rotate-btn:focus-visible,
+  .autorun-btn:focus-visible, .palette-item:focus-visible, button:focus-visible, a:focus-visible{
+    outline:2px solid var(--signal-on); outline-offset:2px;
+  }
+
   ::-webkit-scrollbar{ width:11px; height:11px; }
   ::-webkit-scrollbar-track{ background:var(--bg-deepest); }
   ::-webkit-scrollbar-thumb{ background:var(--panel-border); border-radius:6px; border:2px solid var(--bg-deepest); }
@@ -478,11 +500,15 @@
 </section>
 
 <section id="contact" class="site-section site-page">
-  <h2>Contact</h2>
+  <h2>About</h2>
+  <p class="lede">CJD LOGIC/BOARD is an independent, single-file digital logic simulator built by CJD as a hands-on tool for learning and teaching how gates, adders, multiplexers, and sequential circuits actually work — by wiring them up and watching signals move, rather than just reading about them.</p>
+
+  <h2 style="margin-top:40px;">Contact</h2>
   <p class="lede">Questions, bug reports, or a circuit that behaves strangely? Get in touch.</p>
   <div class="card" style="max-width:420px;">
     <p>This is a self-contained demo project with no backend, so there's no live contact form here — but you're welcome to reach out by email.</p>
-    <a class="btn-secondary" href="mailto:hello@example.com">hello@example.com</a>
+    <!-- TODO: replace with your real email address before publishing -->
+    <a class="btn-secondary" href="mailto:your-email@example.com">your-email@example.com</a>
   </div>
 </section>
 
@@ -654,25 +680,39 @@
 
     const body = document.createElement('div');
     body.className = 'gate-body';
+    body.tabIndex = 0;
+    body.setAttribute('role', 'button');
+    body.setAttribute('aria-label', `${def.label || node.type} component. Press Enter to select, Delete to remove, arrow keys to move.`);
     if(def.isInput || def.isClock){ body.innerHTML = `<div class="toggle-track"><div class="toggle-knob"></div></div>`; }
     else if(def.isOutput){ body.innerHTML = `<div class="led"></div>`; }
     else if(GATE_SVG[node.type]){ body.innerHTML = `<svg width="${node.w}" height="${node.h}" viewBox="0 0 ${node.w} ${node.h}">${GATE_SVG[node.type]}</svg>`; }
     else { body.innerHTML = `<div class="ic-chip"><div class="chip-label">${def.label||node.type}</div></div>`; }
     el.appendChild(body);
+    body.addEventListener('keydown', e=>{
+      if(e.key==='Enter' || e.key===' '){
+        e.preventDefault();
+        selectedNodeId = node.id; selectedConnId = null; updateSelectionClasses();
+        if((node.type==='INPUT' || node.type==='CLOCK') && e.key===' '){ node.state = node.state?0:1; evaluate(); }
+      }
+    });
 
     if(def.isClock){
       const btn = document.createElement('div');
       btn.className = 'autorun-btn'; btn.textContent = '▶';
-      btn.addEventListener('pointerdown', e=>e.stopPropagation());
-      btn.addEventListener('click', e=>{
-        e.stopPropagation();
+      btn.tabIndex = 0; btn.setAttribute('role','button');
+      btn.setAttribute('aria-label', 'Toggle clock auto-run');
+      const toggleRun = ()=>{
         node.running = !node.running;
         btn.textContent = node.running ? '⏸' : '▶';
         btn.classList.toggle('active', node.running);
+        btn.setAttribute('aria-label', node.running ? 'Stop clock auto-run' : 'Start clock auto-run');
         if(node.running){ node.timer = setInterval(()=>{ node.state = node.state?0:1; evaluate(); }, 500/simSpeed); }
         else { clearInterval(node.timer); node.timer=null; }
         renderStats();
-      });
+      };
+      btn.addEventListener('pointerdown', e=>e.stopPropagation());
+      btn.addEventListener('click', e=>{ e.stopPropagation(); toggleRun(); });
+      btn.addEventListener('keydown', e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); e.stopPropagation(); toggleRun(); } });
       el.appendChild(btn);
     }
 
@@ -683,14 +723,21 @@
 
     const del = document.createElement('div');
     del.className = 'del-btn'; del.textContent = '×';
+    del.tabIndex = 0; del.setAttribute('role','button');
+    del.setAttribute('aria-label', `Delete ${def.label || node.type} component`);
     del.addEventListener('pointerdown', e=>e.stopPropagation());
     del.addEventListener('click', e=>{ e.stopPropagation(); pushUndo(); deleteNode(node.id); });
+    del.addEventListener('keydown', e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); e.stopPropagation(); pushUndo(); deleteNode(node.id); } });
     el.appendChild(del);
 
     const rot = document.createElement('div');
     rot.className = 'rotate-btn'; rot.textContent = '⟳';
+    rot.tabIndex = 0; rot.setAttribute('role','button');
+    rot.setAttribute('aria-label', `Rotate ${def.label || node.type} component 90 degrees`);
+    const doRotate = ()=>{ pushUndo(); node.rot=((node.rot||0)+90)%360; positionNode(node); renderWires(); };
     rot.addEventListener('pointerdown', e=>e.stopPropagation());
-    rot.addEventListener('click', e=>{ e.stopPropagation(); pushUndo(); node.rot=((node.rot||0)+90)%360; positionNode(node); renderWires(); });
+    rot.addEventListener('click', e=>{ e.stopPropagation(); doRotate(); });
+    rot.addEventListener('keydown', e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); e.stopPropagation(); doRotate(); } });
     el.appendChild(rot);
 
     const showTags = (def.category==='circuit' || def.category==='sequential');
@@ -699,7 +746,10 @@
       const pin = document.createElement('div');
       pin.className='pin pin-in'; pin.style.left=p.x+'px'; pin.style.top=p.y+'px';
       pin.dataset.role='in'; pin.dataset.slot=i; pin.dataset.nodeId=node.id;
+      pin.tabIndex = 0; pin.setAttribute('role','button');
+      pin.setAttribute('aria-label', `${def.label||node.type} input pin ${p.name}. Press Enter to complete a wire here.`);
       pin.addEventListener('pointerup', e=>{ e.stopPropagation(); onPinUp(node.id, i); });
+      pin.addEventListener('keydown', e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); e.stopPropagation(); onPinUp(node.id, i); } });
       el.appendChild(pin);
       if(showTags){ const tag=document.createElement('div'); tag.className='pin-tag'; tag.style.left=(p.x+8)+'px'; tag.style.top=p.y+'px'; tag.style.textAlign='left'; tag.textContent=p.name; el.appendChild(tag); }
     });
@@ -707,7 +757,10 @@
       const pin = document.createElement('div');
       pin.className='pin pin-out'; pin.style.left=p.x+'px'; pin.style.top=p.y+'px';
       pin.dataset.role='out'; pin.dataset.slot=i; pin.dataset.nodeId=node.id;
+      pin.tabIndex = 0; pin.setAttribute('role','button');
+      pin.setAttribute('aria-label', `${def.label||node.type} output pin ${p.name}. Press Enter to start a wire from here.`);
       pin.addEventListener('pointerdown', e=>{ e.stopPropagation(); onPinDown(node.id, i); });
+      pin.addEventListener('keydown', e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); e.stopPropagation(); onPinDown(node.id, i); } });
       el.appendChild(pin);
       if(showTags){ const tag=document.createElement('div'); tag.className='pin-tag'; tag.style.left=(p.x-8)+'px'; tag.style.top=p.y+'px'; tag.style.textAlign='right'; tag.style.transform='translate(-100%,-50%)'; tag.textContent=p.name; el.appendChild(tag); }
     });
@@ -1266,9 +1319,22 @@
   }, { passive:false });
 
   document.addEventListener('keydown', e=>{
-    if(e.key==='Delete' || e.key==='Backspace'){
+    const inTextField = ['INPUT','TEXTAREA'].includes(document.activeElement && document.activeElement.tagName);
+    if(e.key === 'Delete' || e.key === 'Backspace'){
+      if(inTextField) return;
       if(selectedConnId!==null){ pushUndo(); connections=connections.filter(c=>c.id!==selectedConnId); selectedConnId=null; evaluate(); e.preventDefault(); }
       else if(selectedNodeId){ pushUndo(); deleteNode(selectedNodeId); selectedNodeId=null; updateSelectionClasses(); e.preventDefault(); }
+    } else if(!inTextField && selectedNodeId && ['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)){
+      const node = nodes.get(selectedNodeId);
+      if(node){
+        e.preventDefault();
+        const step = e.shiftKey ? GRID : 6;
+        if(e.key==='ArrowUp') node.y = Math.max(0, node.y-step);
+        if(e.key==='ArrowDown') node.y = node.y+step;
+        if(e.key==='ArrowLeft') node.x = Math.max(0, node.x-step);
+        if(e.key==='ArrowRight') node.x = node.x+step;
+        positionNode(node); renderWires(); renderMiniMap();
+      }
     } else if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='z'){
       e.preventDefault();
       if(undoStack.length){ restoreSnapshot(undoStack.pop()); }
@@ -1308,6 +1374,10 @@
 
   // ================= Palette =================
   function attachPaletteDrag(item){
+    item.tabIndex = 0;
+    item.setAttribute('role', 'button');
+    const label = item.querySelector('.plabel');
+    item.setAttribute('aria-label', `Add ${label ? label.textContent : item.dataset.type} to board`);
     item.addEventListener('pointerdown', e=>{
       const type = item.dataset.type;
       const ghost = item.cloneNode(true);
@@ -1316,6 +1386,19 @@
       document.body.appendChild(ghost);
       paletteDrag = { type, ghostEl:ghost, startX:e.clientX, startY:e.clientY, moved:false };
       e.preventDefault();
+    });
+    item.addEventListener('keydown', e=>{
+      if(e.key==='Enter' || e.key===' '){
+        e.preventDefault();
+        const type = item.dataset.type;
+        const def = COMPONENTS[type];
+        const r = boardViewport.getBoundingClientRect();
+        const center = screenToLocal(r.left+r.width/2, r.top+r.height/2);
+        pushUndo();
+        const n = addNode(type, Math.max(0,center.x-def.w/2), Math.max(0,center.y-(def.h||60)/2));
+        selectedNodeId = n.id; updateSelectionClasses();
+        showPage('simulator');
+      }
     });
   }
   document.querySelectorAll('.palette-item').forEach(attachPaletteDrag);
@@ -1475,9 +1558,30 @@
     reader.readAsText(file);
     e.target.value = '';
   });
-  document.getElementById('fdExport').addEventListener('click', ()=>{
-    if(typeof html2canvas === 'undefined'){ alert('PNG export library failed to load — check your connection.'); return; }
+  function waitForHtml2Canvas(maxWaitMs){
+    return new Promise(resolve=>{
+      if(typeof html2canvas !== 'undefined'){ resolve(true); return; }
+      const start = Date.now();
+      const poll = setInterval(()=>{
+        if(typeof html2canvas !== 'undefined'){ clearInterval(poll); resolve(true); }
+        else if(Date.now()-start > maxWaitMs){ clearInterval(poll); resolve(false); }
+      }, 150);
+    });
+  }
+  document.getElementById('fdExport').addEventListener('click', async ()=>{
     if(nodes.size === 0){ alert('Nothing on the board to export yet.'); return; }
+    const exportItem = document.getElementById('fdExport');
+    const originalText = exportItem.textContent;
+    exportItem.textContent = 'Loading export tool…';
+    exportItem.style.pointerEvents = 'none';
+    exportItem.style.opacity = '0.6';
+    const ready = await waitForHtml2Canvas(6000);
+    if(!ready){
+      exportItem.textContent = originalText; exportItem.style.pointerEvents=''; exportItem.style.opacity='';
+      alert('PNG export library failed to load — check your connection and try again.');
+      return;
+    }
+    exportItem.textContent = 'Rendering PNG…';
     let minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity;
     nodes.forEach(n=>{
       minX = Math.min(minX, n.x); minY = Math.min(minY, n.y);
@@ -1487,13 +1591,18 @@
     minX = Math.max(0, minX-pad); minY = Math.max(0, minY-pad);
     maxX = Math.min(2600, maxX+pad); maxY = Math.min(1500, maxY+pad);
     const bg = getComputedStyle(document.documentElement).getPropertyValue('--board').trim() || '#0d2318';
-    html2canvas(board, { backgroundColor: bg, x:minX, y:minY, width:maxX-minX, height:maxY-minY }).then(canvas=>{
+    try{
+      const canvas = await html2canvas(board, { backgroundColor: bg, x:minX, y:minY, width:maxX-minX, height:maxY-minY });
       canvas.toBlob(blob=>{
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a'); a.href=url; a.download='logic_circuit.png'; document.body.appendChild(a); a.click(); a.remove();
         URL.revokeObjectURL(url);
+        exportItem.textContent = originalText; exportItem.style.pointerEvents=''; exportItem.style.opacity='';
       });
-    });
+    } catch(err){
+      exportItem.textContent = originalText; exportItem.style.pointerEvents=''; exportItem.style.opacity='';
+      alert('PNG export failed. Please try again.');
+    }
   });
 
   // ================= Theme =================
